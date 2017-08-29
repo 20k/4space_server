@@ -172,7 +172,7 @@ struct server_game_state
 
     void reset_player_disconnect_timer(sockaddr_storage& store);
 
-    void set_map(int);
+    //void set_map(int);
 };
 
 

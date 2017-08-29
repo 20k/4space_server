@@ -56,6 +56,7 @@ struct session_state
     std::string get_current_game_state_string(const session_boundaries& bounds);
 };
 
+#if 0
 namespace map_namespace
 {
     enum spawn_defs : int
@@ -222,5 +223,6 @@ namespace game_map
         return ret;
     }
 }
+#endif
 
 #endif // GAME_MODES_HPP_INCLUDED

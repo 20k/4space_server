@@ -113,7 +113,7 @@ int main(int argc, char* argv[])
     server_game_state my_state;
     my_state.mode_handler.shared_game_state.current_game_mode = game_mode::FFA;
 
-    my_state.set_map(0);
+    //my_state.set_map(0);
 
     udp_sock to_master;
 

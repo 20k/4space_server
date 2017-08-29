@@ -195,6 +195,7 @@ void server_game_state::reset_player_disconnect_timer(sockaddr_storage& store)
     }
 }
 
+#if 0
 void server_game_state::set_map(int id)
 {
     map_num = id;
@@ -218,6 +219,7 @@ void server_game_state::set_map(int id)
         }
     }
 }
+#endif
 
 void server_game_state::broadcast(const std::vector<char>& dat, const int& to_skip)
 {
