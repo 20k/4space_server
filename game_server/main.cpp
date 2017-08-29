@@ -262,9 +262,9 @@ int main(int argc, char* argv[])
 
         //my_state.tick();
 
-        my_state.balance_teams();
+        //my_state.balance_teams();
 
-        my_state.periodic_team_broadcast();
+        //my_state.periodic_team_broadcast();
 
         /*my_state.periodic_gamemode_stats_broadcast();
 
