@@ -521,7 +521,12 @@ void server_game_state::process_received_message(byte_fetch& arg, sockaddr_stora
 
     arg = fetch;
 
+    #define USE_CLUMPER
+    #ifdef USE_CLUMPER
     broadcast_clump(vec.ptr, who);
+    #else
+    broadcast(vec.ptr, who);
+    #endif
 }
 
 void server_game_state::process_reported_message(byte_fetch& arg, sockaddr_storage& who)
