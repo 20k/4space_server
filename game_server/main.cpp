@@ -236,6 +236,14 @@ int main(int argc, char* argv[])
                 {
                     my_state.process_ping_gameserver(my_server, fetch, store);
                 }
+                else if(type == message::KEEP_ALIVE)
+                {
+                    fetch.get<decltype(canary_end)>();
+                }
+                else if(type == message::REQUEST)
+                {
+                    my_state.process_request(my_server, fetch, store);
+                }
                 else
                 {
                     printf("err %i ", type);
