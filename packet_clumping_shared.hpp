@@ -41,21 +41,35 @@ struct packet_clumper
         destinations.push_back(info);
     }
 
+    int get_max_packet_data_size()
+    {
+        return 450;
+    }
+
     void tick()
     {
         for(auto& i : destinations)
         {
-            std::vector<char> data;
+            int cur_dest = 0;
+            std::vector<std::vector<char>> data;
+            data.resize(1);
 
             for(auto& nd : destination_to_senddata)
             {
+                if(data[cur_dest].size() != 0 && (data[cur_dest].size() + nd.data.size()) >= get_max_packet_data_size())
+                {
+                    cur_dest++;
+                    data.resize(cur_dest + 1);
+                }
+
                 if(i.store == nd.store)
                 {
-                    data.insert(data.end(), nd.data.begin(), nd.data.end());
+                    data[cur_dest].insert(data[cur_dest].end(), nd.data.begin(), nd.data.end());
                 }
             }
 
-            udp_send_to(i.sock, data, (sockaddr*)&i.store);
+            for(auto& dat : data)
+                udp_send_to(i.sock, dat, (sockaddr*)&i.store);
         }
 
         destination_to_senddata.clear();
