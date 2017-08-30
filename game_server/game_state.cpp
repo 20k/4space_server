@@ -498,8 +498,8 @@ void server_game_state::process_received_message(byte_fetch& arg, sockaddr_stora
 
     uint32_t len = fetch.get<uint32_t>();
 
-    if(len > 255)
-        len = 255;
+    if(len > 512)
+        len = 512;
 
     vec.push_back<uint32_t>(len);
 
