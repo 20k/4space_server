@@ -107,6 +107,7 @@ int main(int argc, char* argv[])
     uint32_t pnum = atoi(host_port.c_str());
 
     udp_sock my_server = udp_host(host_port);
+    //sock_set_non_blocking(my_server, 1);
 
     printf("Registered on port %s\n", my_server.get_host_port().c_str());
 
