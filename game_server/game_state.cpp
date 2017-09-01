@@ -231,6 +231,8 @@ void server_game_state::broadcast(const std::vector<char>& dat, const int& to_sk
         if(i == to_skip)
             continue;
 
+        while(!sock_writable(fd)){}
+
         udp_send_to(fd, dat, (sockaddr*)&store);
     }
 }
@@ -249,6 +251,8 @@ void server_game_state::broadcast(const std::vector<char>& dat, sockaddr_storage
             c++;
             continue;
         }
+
+        while(!sock_writable(fd)){}
 
         udp_send_to(fd, dat, (sockaddr*)&store);
     }
