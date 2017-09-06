@@ -49,6 +49,7 @@ namespace message
         PLAYER_STATS_UPDATE_INDIVIDUAL, ///kills, deaths for a player
         KEEP_ALIVE,
         REQUEST,
+        PAUSE_DATA,
     };
 }
 
