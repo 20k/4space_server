@@ -50,6 +50,7 @@ namespace message
         KEEP_ALIVE,
         REQUEST,
         PAUSE_DATA,
+        PACKET_ACK,
     };
 }
 
