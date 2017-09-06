@@ -730,6 +730,56 @@ void server_game_state::process_request(udp_sock& sock, byte_fetch& fetch, socka
     broadcast(vec.ptr, who);
 }
 
+void server_game_state::process_pause_data(udp_sock& sock, byte_fetch& fetch, sockaddr_storage& who)
+{
+    int32_t len = fetch.get<int32_t>();
+
+    byte_vector vec;
+
+    vec.push_back(canary_start);
+    vec.push_back(message::PAUSE_DATA);
+    vec.push_back<int32_t>(len);
+
+    for(int i=0; i<len; i++)
+    {
+        vec.push_back(fetch.get<uint8_t>());
+    }
+
+    vec.push_back(canary_end);
+
+    int32_t found_end = fetch.get<int32_t>();
+
+    if(found_end != canary_end)
+        return;
+
+    broadcast(vec.ptr, who);
+}
+
+void server_game_state::process_generic_message(udp_sock& sock, byte_fetch& fetch, sockaddr_storage& who, message::message type)
+{
+    int32_t len = fetch.get<int32_t>();
+
+    byte_vector vec;
+
+    vec.push_back(canary_start);
+    vec.push_back(type);
+    vec.push_back<int32_t>(len);
+
+    for(int i=0; i<len; i++)
+    {
+        vec.push_back(fetch.get<uint8_t>());
+    }
+
+    vec.push_back(canary_end);
+
+    int32_t found_end = fetch.get<int32_t>();
+
+    if(found_end != canary_end)
+        return;
+
+    broadcast(vec.ptr, who);
+}
+
 ///ok, the server can store everyone's pings and then distribute to clients
 ///really we should be sending out timestamps with all the updates, and then use that :[
 

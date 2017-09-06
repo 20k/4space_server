@@ -245,6 +245,10 @@ int main(int argc, char* argv[])
                 {
                     my_state.process_request(my_server, fetch, store);
                 }
+                else if(type == message::PACKET_ACK)
+                {
+                    my_state.process_generic_message(my_server, fetch, store, message::PACKET_ACK);
+                }
                 else
                 {
                     printf("err %i ", type);

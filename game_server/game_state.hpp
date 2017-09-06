@@ -12,6 +12,7 @@
 #include "../reliability_shared.hpp"
 #include "../packet_clumping_shared.hpp"
 #include "../game_mode_shared.hpp"
+#include "../master_server/network_messages.hpp"
 
 struct player
 {
@@ -155,6 +156,8 @@ struct server_game_state
     void process_ping_response(udp_sock& sock, byte_fetch& fetch, sockaddr_storage& who);
     void process_ping_gameserver(udp_sock& sock, byte_fetch& fetch, sockaddr_storage& who);
     void process_request(udp_sock& sock, byte_fetch& fetch, sockaddr_storage& who);
+    void process_pause_data(udp_sock& sock, byte_fetch& fetch, sockaddr_storage& who);
+    void process_generic_message(udp_sock& sock, byte_fetch& fetch, sockaddr_storage& who, message::message type);
 
     void ping();
 
