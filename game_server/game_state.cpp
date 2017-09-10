@@ -502,8 +502,8 @@ void server_game_state::process_received_message(byte_fetch& arg, sockaddr_stora
 
     uint32_t len = fetch.get<uint32_t>();
 
-    if(len > 512)
-        len = 512;
+    //if(len > 512)
+    //    len = 512;
 
     vec.push_back<uint32_t>(len);
 
@@ -727,7 +727,7 @@ void server_game_state::process_request(udp_sock& sock, byte_fetch& fetch, socka
     if(found_end != canary_end)
         return;
 
-    broadcast(vec.ptr, who);
+    broadcast_clump(vec.ptr, who);
 }
 
 void server_game_state::process_pause_data(udp_sock& sock, byte_fetch& fetch, sockaddr_storage& who)
@@ -777,7 +777,7 @@ void server_game_state::process_generic_message(udp_sock& sock, byte_fetch& fetc
     if(found_end != canary_end)
         return;
 
-    broadcast(vec.ptr, who);
+    broadcast_clump(vec.ptr, who);
 }
 
 ///ok, the server can store everyone's pings and then distribute to clients

@@ -70,7 +70,7 @@ struct packet_clumper
 
             for(auto& dat : data)
             {
-                while(!sock_writable(i.sock)){}
+                //while(!sock_writable(i.sock)){}
 
                 udp_send_to(i.sock, dat, (sockaddr*)&i.store);
             }

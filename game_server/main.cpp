@@ -186,7 +186,7 @@ int main(int argc, char* argv[])
                 if(fetch.finished())
                     continue;
 
-                while(!sock_writable(my_server)){}
+                //while(!sock_writable(my_server)){}
 
                 int32_t type = fetch.get<int32_t>();
 
