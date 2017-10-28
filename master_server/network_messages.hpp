@@ -14,7 +14,7 @@
 
 //#define MASTER_IP "enigma.simrai.com"
 
-#define MASTER_IP "62.31.131.55"
+#define MASTER_IP "77.96.132.101"
 
 
 #include <stdint.h>
