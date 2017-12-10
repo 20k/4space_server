@@ -33,7 +33,7 @@
 			<Add option="-Wextra" />
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
-			<Add option="-std=gnu++14" />
+			<Add option="-std=gnu++1z" />
 			<Add option="-Wno-sign-compare" />
 			<Add option="-Wno-narrowing" />
 		</Compiler>
@@ -55,9 +55,12 @@
 			<Add option="-lopenal32" />
 			<Add option="-logg" />
 		</Linker>
+		<Unit filename="../../serialise/serialise.cpp" />
+		<Unit filename="../../serialise/serialise.hpp" />
 		<Unit filename="../game_mode_shared.cpp" />
 		<Unit filename="../master_server/network_messages.hpp" />
 		<Unit filename="../packet_clumping_shared.hpp" />
+		<Unit filename="../reliability_ordered_shared.hpp" />
 		<Unit filename="../reliability_shared.cpp" />
 		<Unit filename="../reliability_shared.hpp" />
 		<Unit filename="game_modes.cpp" />
