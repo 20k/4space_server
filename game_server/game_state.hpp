@@ -13,6 +13,7 @@
 #include "../packet_clumping_shared.hpp"
 #include "../game_mode_shared.hpp"
 #include "../master_server/network_messages.hpp"
+#include "../reliability_ordered_shared.hpp"
 
 struct player
 {
@@ -98,6 +99,8 @@ struct server_game_state
     packet_clumper packet_clump;
 
     server_reliability_manager reliable;
+
+    network_reliable_ordered reliable_ordered;
 
     int max_players = 10;
 

@@ -5,48 +5,9 @@
 #include "../master_server/network_messages.hpp"
 #include <vec/vec.hpp>
 #include "game_state.hpp"
+#include "../reliability_ordered_shared.hpp"
 
 #include <cl/cl.h>
-
-///The code duplication and poor organisation is unreal. We need a cleanup :[
-void tcp_periodic_connect(tcp_sock& sock, const std::string& address)
-{
-    if(sock.valid())
-        return;
-
-    static sock_info inf;
-
-    static bool first = true; ///tries once the first time, every time
-
-    const int delay_s = 5;
-
-    if(inf.valid())
-    {
-        std::cout << "Connected to tcp server @ " << address << std::endl;
-
-        sock = tcp_sock(inf.get());
-        return;
-    }
-
-    ///If the last connection attempt has timed out, retry
-    if(!inf.within_timeout() || first)
-    {
-        printf("Attempting connection to server\n");
-
-        inf = tcp_connect(address, delay_s, 0);
-
-        first = false;
-    }
-}
-
-sock_info try_tcp_connect(const std::string& address, const std::string& port)
-{
-    sock_info inf;
-
-    inf = tcp_connect(address, port, 1, 0);
-
-    return inf;
-}
 
 void ping_master(server_game_state& my_state, int32_t port, udp_sock& to_master)
 {
@@ -113,6 +74,7 @@ int main(int argc, char* argv[])
 
     server_game_state my_state;
     my_state.mode_handler.shared_game_state.current_game_mode = game_mode::FFA;
+    my_state.reliable_ordered.init_server();
 
     //my_state.set_map(0);
 
