@@ -36,6 +36,7 @@
 			<Add option="-std=gnu++1z" />
 			<Add option="-Wno-sign-compare" />
 			<Add option="-Wno-narrowing" />
+			<Add option="-DNET_SERVER" />
 		</Compiler>
 		<Linker>
 			<Add option="-lmingw32" />

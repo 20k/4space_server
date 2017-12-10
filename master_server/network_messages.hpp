@@ -36,6 +36,8 @@ namespace message
         FORWARDING_RELIABLE, ///;_;
         FORWARDING_RELIABLE_ACK,
         FORWARDING_ORDERED_RELIABLE,
+        FORWARDING_ORDERED_RELIABLE_ACK,
+        FORWARDING_ORDERED_RELIABLE_REQUEST,
         REPORT, ///client has something to report to the server
         TEAMASSIGNMENT,
         GAMEMODEUPDATE, ///periodic broadcast of the relevant stats
