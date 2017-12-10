@@ -81,7 +81,7 @@ byte_vector get_fragment(int id, const network_object& no, const std::vector<cha
         byte_vector vec;
 
         vec.push_back(canary_start);
-        vec.push_back(message::FORWARDING);
+        vec.push_back(message::FORWARDING_ORDERED_RELIABLE);
         vec.push_back(header);
         vec.push_back<network_object>(no);
 
@@ -111,7 +111,7 @@ byte_vector get_fragment(int id, const network_object& no, const std::vector<cha
     header.sequence_number = id;
 
     vec.push_back(canary_start);
-    vec.push_back(message::FORWARDING);
+    vec.push_back(message::FORWARDING_ORDERED_RELIABLE);
 
     vec.push_back(header);
     vec.push_back<network_object>(no);
