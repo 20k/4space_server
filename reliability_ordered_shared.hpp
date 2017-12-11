@@ -151,6 +151,7 @@ struct network_data
     }
 };
 
+#pragma pack(1)
 struct forward_packet
 {
     int32_t canary_first;
@@ -160,6 +161,28 @@ struct forward_packet
     byte_fetch fetch;
     int32_t canary_second;
 };
+
+///packet acks were purely used for rate limiting
+///which is extremely wasteful
+///maybe just ack every 10th packet or something
+///or, ack range every 1 second
+struct packet_ack
+{
+    serialise_owner_type owner_id = 0;
+    sequence_data_type sequence_id = 0;
+    packet_id_type packet_id = 0;
+};
+
+#pragma pack(1)
+struct packet_request_range
+{
+    serialise_owner_type owner_id = 0;
+    sequence_data_type sequence_id_start = 0;
+    sequence_data_type sequence_id_end = 0;
+
+    packet_id_type packet_id = 0;
+};
+
 
 inline
 void move_forward_packet_to_network_data(forward_packet& packet, network_data& out)
@@ -185,9 +208,22 @@ struct network_packet_fragment_info_send
 
 struct network_packet_info_send
 {
+    ///guaranteed to be empty or complete
     std::map<sequence_data_type, network_packet_fragment_info_send> fragment_info;
 
     bool full_packet_ack = false;
+
+    std::vector<byte_vector> get_fragments(int start, int fin)
+    {
+        std::vector<byte_vector> ret;
+
+        for(int i=start; i < fin && i < fragment_info.size(); i++)
+        {
+            ret.push_back(fragment_info[i].data);
+        }
+
+        return ret;
+    }
 };
 
 struct network_owner_info_send
@@ -198,6 +234,11 @@ struct network_owner_info_send
     {
         packet_info[pid].fragment_info[sid].data = vec;
     }
+
+    std::vector<byte_vector> get_fragments(packet_id_type pid, int start, int fin)
+    {
+        return packet_info[pid].get_fragments(start, fin);
+    }
 };
 
 struct network_packet_fragment_info_recv
@@ -207,7 +248,7 @@ struct network_packet_fragment_info_recv
 
 struct network_packet_info_recv
 {
-    std::map<sequence_data_type, network_packet_fragment_info_recv> fragment_info;
+   // std::map<sequence_data_type, network_packet_fragment_info_recv> fragment_info;
 
     serialise_data_type serialise_id = 0;
     int packet_fragments_num = 1;
@@ -219,6 +260,8 @@ struct network_packet_info_recv
 
     int from = -1;
 
+    //sf::Clock last_requested_at;
+
     void sort_fragments()
     {
         std::sort(fragments.begin(), fragments.end(),
@@ -227,11 +270,83 @@ struct network_packet_info_recv
                       return p1.sequence_number < p2.sequence_number;
                   });
     }
+
+    /*bool could_request()
+    {
+        float max_time_s = 0.2f;
+
+        return (last_requested_at.getElapsedTime().asMicroseconds() / 1000. / 1000.) > max_time_s;
+    }*/
+
+    bool has_all_fragments()
+    {
+        return fragments.size() == packet_fragments_num;
+    }
+
+    std::vector<packet_request_range> get_requests(serialise_owner_type sid, packet_id_type pid)
+    {
+        std::vector<packet_request_range> ret;
+
+        packet_request_range next_to_send;
+        next_to_send.sequence_id_start = -1;
+
+        next_to_send.owner_id = sid;
+        next_to_send.packet_id = pid;
+
+        for(int i=0; i < packet_fragments_num; i++)
+        {
+            if(!has_fragment[i])
+            {
+                ///we haven't received this fragment
+                ///and we haven't started a range
+                if(next_to_send.sequence_id_start == -1)
+                {
+                    ///start range
+                    next_to_send.sequence_id_start = i;
+                    continue;
+                }
+
+                ///we haven't received this fragment and we've started a range
+                next_to_send.sequence_id_end = i;
+            }
+            else
+            {
+                ///we've started a range and we have received this fragment
+                ///terminmation condition for range
+                ///push new range, then reset range to uninitialised
+                if(next_to_send.sequence_id_start != -1)
+                {
+                    ///one past end
+                    next_to_send.sequence_id_end += 1;
+
+                    ret.push_back(next_to_send);
+
+                    next_to_send.sequence_id_start = -1;
+                }
+            }
+        }
+
+        next_to_send.sequence_id_end = packet_fragments_num;
+
+        ///we started a range that was unfinished, finish manually
+        if(next_to_send.sequence_id_start != -1)
+        {
+            ret.push_back(next_to_send);
+        }
+
+        return ret;
+    }
+
+    /*void reset_request()
+    {
+        last_requested_at.restart();
+    }*/
 };
 
 struct network_owner_info_recv
 {
     std::map<packet_id_type, network_packet_info_recv> packet_info;
+    std::map<packet_id_type, sf::Clock> request_timers;
 
     std::deque<forward_packet> full_packets;
     std::map<packet_id_type, bool> made_available;
@@ -253,7 +368,7 @@ struct network_owner_info_recv
         packet_info[pid].serialise_id = sid;
     }
 
-    void store_packet_fragments_num(packet_id_type pid, int num)
+    void store_expected_packet_fragments_num(packet_id_type pid, int num)
     {
         packet_info[pid].packet_fragments_num = num;
     }
@@ -268,7 +383,7 @@ struct network_owner_info_recv
         packet_info[pid].has_fragment[frag.sequence_number] = true;
     }
 
-    int num_packet_fragments(packet_id_type pid)
+    int get_current_packet_fragments_num(packet_id_type pid)
     {
         return packet_info[pid].fragments.size();
     }
@@ -346,8 +461,87 @@ struct network_owner_info_recv
                 move_forward_packet_to_network_data(packet, out);
 
                 into.push_back(out);
+
+                request_timers.erase(packet.header.packet_id);
+                full_packets.erase(full_packets.begin() + i);
+                i--;
+                continue;
             }
         }
+    }
+
+    bool received_any_fragments(packet_id_type pid)
+    {
+        return packet_info.find(pid) != packet_info.end();
+    }
+
+    bool should_request_packet(packet_id_type pid)
+    {
+        float min_time_s = 0.2f;
+
+        return (request_timers[pid].getElapsedTime().asMicroseconds() / 1000. / 1000.) > min_time_s;
+    }
+
+    void request_packet(packet_id_type pid)
+    {
+        request_timers[pid].restart();
+    }
+
+    std::vector<packet_request_range> request_incomplete_packets(serialise_owner_type oid)
+    {
+        sort_received_packets();
+
+        std::vector<packet_request_range> ret;
+
+        ///not maximum number of requests
+        ///that'll be throttled on sending i guess?
+        int max_request_packets = 20;
+
+        int last_fragment = last_received + 1;
+
+        if(full_packets.size() != 0)
+        {
+            last_fragment = full_packets.back().header.packet_id;
+        }
+
+        int num = 0;
+
+        for(packet_id_type i=last_received+1; i < last_fragment; i++)
+        {
+            if(should_request_packet(i))
+            {
+                if(received_any_fragments(i))
+                {
+                    std::vector<packet_request_range> ranges = packet_info[i].get_requests(oid, i);
+
+                    num += ranges.size();
+
+                    for(auto& kk : ranges)
+                    {
+                        ret.push_back(kk);
+                    }
+                }
+                else
+                {
+                    packet_request_range prr;
+                    prr.owner_id = oid;
+                    prr.packet_id = i;
+                    prr.sequence_id_end = 1;
+                    prr.sequence_id_start = 0;
+
+                    ret.push_back(prr);
+
+                    num++;
+                }
+
+                request_packet(i);
+
+                if(num >= max_request_packets)
+                    break;
+            }
+        }
+
+        return ret;
     }
 };
 
@@ -377,28 +571,7 @@ struct packet_request
     sequence_data_type sequence_id = 0;
     packet_id_type packet_id = 0;
     serialise_data_type serialise_id;
-};
-
-///packet acks were purely used for rate limiting
-///which is extremely wasteful
-///maybe just ack every 10th packet or something
-///or, ack range every 1 second
-struct packet_ack
-{
-    serialise_owner_type owner_id = 0;
-    sequence_data_type sequence_id = 0;
-    packet_id_type packet_id = 0;
 };*/
-
-#pragma pack(1)
-struct packet_request_range
-{
-    serialise_owner_type owner_id = 0;
-    sequence_data_type sequence_id_start = 0;
-    sequence_data_type sequence_id_end = 0;
-
-    packet_id_type packet_id = 0;
-};
 
 struct network_reliable_ordered
 {
@@ -421,6 +594,68 @@ public:
 
     bool is_server(){return serv;}
     bool is_client(){return !serv;}
+
+    void make_packet_request(udp_sock& sock, const sockaddr* store, packet_request_range& request)
+    {
+        byte_vector vec;
+        vec.push_back(canary_start);
+        vec.push_back(message::FORWARDING_ORDERED_RELIABLE_REQUEST);
+        vec.push_back(request);
+        vec.push_back(canary_end);
+
+        //while(!sock_writable(sock)) {}
+
+        portable_send(sock, store, vec.ptr);
+    }
+
+    void request_all_packets_client(udp_sock& sock, const sockaddr* store)
+    {
+        for(auto& i : receiving_owner_to_packet_info)
+        {
+            std::vector<packet_request_range> range = i.second.request_incomplete_packets(i.first);
+
+            for(packet_request_range& ran : range)
+            {
+                make_packet_request(sock, store, ran);
+            }
+        }
+    }
+
+    void portable_send(udp_sock& sock, const sockaddr* store, const std::vector<char>& data)
+    {
+        if(is_client())
+            udp_send(sock, data);
+
+        if(is_server())
+            udp_send_to(sock, data, store);
+    }
+
+    void handle_packet_request(udp_sock& sock, const sockaddr* store, byte_fetch& fetch)
+    {
+        packet_request_range range = fetch.get<packet_request_range>();
+
+        int32_t found_canary_end = fetch.get<decltype(canary_end)>();
+
+        if(found_canary_end != canary_end)
+        {
+            printf("bad canary in handle packet request");
+            return;
+        }
+
+        int max_send = 20;
+
+        std::vector<byte_vector> dat = sending_owner_to_packet_info[range.owner_id].get_fragments(range.packet_id, range.sequence_id_start, range.sequence_id_end);
+
+        if(dat.size() > max_send)
+        {
+            dat.resize(max_send);
+        }
+
+        for(byte_vector& f2 : dat)
+        {
+            portable_send(sock, store, f2.ptr);
+        }
+    }
 
     ///Hmm. This should work for sending to clients as well?
     ///We probably don't want to use broadcasting
@@ -457,11 +692,7 @@ public:
 
                 //udp_send_to(sock, frag.ptr, store);
 
-                if(is_client())
-                    udp_send(sock, frag.ptr);
-
-                if(is_server())
-                    udp_send_to(sock, frag.ptr, store);
+                portable_send(sock, store, frag.ptr);
             }
         }
 
@@ -490,7 +721,7 @@ public:
 
         if(packet_fragments > 1)
         {
-            receiving_data.store_packet_fragments_num(header.packet_id, no.serialise_id);
+            receiving_data.store_expected_packet_fragments_num(header.packet_id, packet_fragments);
 
             ///INSERT PACKET INTO PACKETS
             packet_fragment next;
@@ -501,7 +732,7 @@ public:
             {
                 std::cout << header.sequence_number << " ";
                 //std::cout << " " << packets.size() << std::endl;
-                std::cout << receiving_data.num_packet_fragments(header.packet_id) << std::endl;
+                std::cout << receiving_data.get_current_packet_fragments_num(header.packet_id) << std::endl;
                 std::cout << packet_fragments << std::endl;
             }
 
@@ -509,7 +740,7 @@ public:
 
             receiving_data.try_add_packet_fragment(header.packet_id, next);
 
-            int current_received_fragments = receiving_data.num_packet_fragments(header.packet_id);
+            int current_received_fragments = receiving_data.get_current_packet_fragments_num(header.packet_id);
 
             if(current_received_fragments == packet_fragments)
             {

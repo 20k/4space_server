@@ -221,6 +221,10 @@ int main(int argc, char* argv[])
 
                     my_state.reliable_ordered.handle_forwarding_ordered_reliable(fetch, player_id);
                 }
+                else if(type == message::FORWARDING_ORDERED_RELIABLE_REQUEST)
+                {
+                    my_state.reliable_ordered.handle_packet_request(my_server, (const sockaddr*)&store, fetch);
+                }
                 else
                 {
                     printf("err %i ", type);
@@ -247,7 +251,7 @@ int main(int argc, char* argv[])
 
         for(network_data& dat : reliable_data)
         {
-            std::cout << "dat\n";
+            std::cout << "dat av " << dat.packet_id << std::endl;
 
             for(player& p : my_state.player_list)
             {
@@ -258,8 +262,19 @@ int main(int argc, char* argv[])
             }
         }
 
-
         reliable_data.clear();
+
+        for(auto& i : my_state.reliable_ordered.receiving_owner_to_packet_info)
+        {
+            std::vector<packet_request_range> range = i.second.request_incomplete_packets(i.first);
+
+            player p = my_state.get_player_from_player_id(i.first);
+
+            for(packet_request_range& ran : range)
+            {
+                my_state.reliable_ordered.make_packet_request(p.sock, (const sockaddr*)&p.store, ran);
+            }
+        }
 
         sf::sleep(sf::milliseconds(1));
 
