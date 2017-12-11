@@ -152,6 +152,7 @@ int main(int argc, char* argv[])
 
                 int32_t type = fetch.get<int32_t>();
 
+
                 if(type == message::CLIENTJOINREQUEST)
                 {
                     my_state.process_join_request(my_server, fetch, store);
@@ -225,6 +226,10 @@ int main(int argc, char* argv[])
                 {
                     my_state.reliable_ordered.handle_packet_request(my_server, (const sockaddr*)&store, fetch);
                 }
+                else if(type == message::FORWARDING_ORDERED_RELIABLE_ACK)
+                {
+                    my_state.reliable_ordered.handle_ack(fetch);
+                }
                 else
                 {
                     printf("err %i ", type);
@@ -268,13 +273,33 @@ int main(int argc, char* argv[])
         {
             std::vector<packet_request_range> range = i.second.request_incomplete_packets(i.first);
 
-            player p = my_state.get_player_from_player_id(i.first);
+            /*player p = my_state.get_player_from_player_id(i.first);
 
             for(packet_request_range& ran : range)
             {
                 my_state.reliable_ordered.make_packet_request(p.sock, (const sockaddr*)&p.store, ran);
+            }*/
+
+            for(packet_request_range& ran : range)
+            {
+                ///well... this is unfortunate
+                for(player& p : my_state.player_list)
+                {
+                    my_state.reliable_ordered.make_packet_request(p.sock, (const sockaddr*)&p.store, ran);
+                }
             }
         }
+
+        for(packet_ack& ack : my_state.reliable_ordered.unacked)
+        {
+            player p = my_state.get_player_from_player_id(ack.host_player_id);
+
+            my_state.reliable_ordered.make_packet_ack(p.sock, (const sockaddr*)&p.store, ack);
+
+            std::cout << "send_ack\n" << ack.host_player_id << std::endl;
+        }
+
+        my_state.reliable_ordered.unacked.clear();
 
         sf::sleep(sf::milliseconds(1));
 

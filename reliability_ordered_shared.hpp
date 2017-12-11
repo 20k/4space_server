@@ -168,8 +168,8 @@ struct forward_packet
 ///or, ack range every 1 second
 struct packet_ack
 {
-    serialise_owner_type owner_id = 0;
-    sequence_data_type sequence_id = 0;
+    serialise_owner_type host_player_id = 0;
+    //sequence_data_type sequence_id = 0;
     packet_id_type packet_id = 0;
 };
 
@@ -426,8 +426,10 @@ struct network_owner_info_recv
         packet_info[pack.header.packet_id].has_full_packet = true;
     }
 
-    void make_full_packets_available_into(std::vector<network_data>& into)
+    std::map<int, packet_id_type> make_full_packets_available_into(std::vector<network_data>& into)
     {
+        std::map<int, packet_id_type> acks;
+
         sort_received_packets();
 
         for(int i=0; i < full_packets.size(); i++)
@@ -460,6 +462,8 @@ struct network_owner_info_recv
                 network_data out;
                 move_forward_packet_to_network_data(packet, out);
 
+                acks[get_from(out.packet_id)] = out.packet_id;
+
                 into.push_back(out);
 
                 request_timers.erase(packet.header.packet_id);
@@ -468,6 +472,8 @@ struct network_owner_info_recv
                 continue;
             }
         }
+
+        return acks;
     }
 
     bool received_any_fragments(packet_id_type pid)
@@ -487,6 +493,7 @@ struct network_owner_info_recv
         request_timers[pid].restart();
     }
 
+    ///need to do rate limiting next!
     std::vector<packet_request_range> request_incomplete_packets(serialise_owner_type oid)
     {
         sort_received_packets();
@@ -582,6 +589,12 @@ struct network_reliable_ordered
     std::map<serialise_owner_type, network_owner_info_send> sending_owner_to_packet_info;
     std::map<serialise_owner_type, network_owner_info_recv> receiving_owner_to_packet_info;
 
+    std::map<int32_t, packet_id_type> player_to_last_ack;
+
+    int32_t last_ack_from_server = -1;
+
+    std::vector<packet_ack> unacked;
+
 public:
 
     int get_owner_id_from_packet(network_object& no, packet_id_type pid)
@@ -606,6 +619,46 @@ public:
         //while(!sock_writable(sock)) {}
 
         portable_send(sock, store, vec.ptr);
+    }
+
+    void make_packet_ack(udp_sock& sock, const sockaddr* store, packet_ack& ack)
+    {
+        byte_vector vec;
+        vec.push_back(canary_start);
+        vec.push_back(message::FORWARDING_ORDERED_RELIABLE_ACK);
+        vec.push_back(ack);
+        vec.push_back(canary_end);
+
+        //while(!sock_writable(sock)) {}
+
+        portable_send(sock, store, vec.ptr);
+    }
+
+    void process_acks_client(udp_sock& sock, const sockaddr* store)
+    {
+        for(packet_ack& ack : unacked)
+        {
+            make_packet_ack(sock, store, ack);
+        }
+
+        unacked.clear();
+    }
+
+    void handle_ack(byte_fetch& fetch)
+    {
+        packet_ack ack = fetch.get<packet_ack>();
+
+        if(is_client())
+        {
+            last_ack_from_server = ack.packet_id;
+
+            std::cout << last_ack_from_server << std::endl;
+        }
+
+        if(is_server())
+        {
+            player_to_last_ack[ack.host_player_id] = ack.packet_id;
+        }
     }
 
     void request_all_packets_client(udp_sock& sock, const sockaddr* store)
@@ -653,6 +706,10 @@ public:
 
         for(byte_vector& f2 : dat)
         {
+            ///don't have the data
+            if(f2.ptr.size() == 0)
+                continue;
+
             portable_send(sock, store, f2.ptr);
         }
     }
@@ -794,7 +851,16 @@ public:
     {
         for(auto& i : receiving_owner_to_packet_info)
         {
-            i.second.make_full_packets_available_into(into);
+            std::map<int, packet_id_type> acks = i.second.make_full_packets_available_into(into);
+
+            for(auto& to_ack : acks)
+            {
+                packet_ack ack;
+                ack.host_player_id = to_ack.first;
+                ack.packet_id = to_ack.second;
+
+                unacked.push_back(ack);
+            }
         }
     }
 
