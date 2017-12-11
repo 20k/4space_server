@@ -217,6 +217,8 @@ int main(int argc, char* argv[])
                 {
                     int32_t player_id = my_state.sockaddr_to_playerid(store);
 
+                    my_state.reset_player_disconnect_timer(store);
+
                     my_state.reliable_ordered.handle_forwarding_ordered_reliable(fetch, player_id);
                 }
                 else
@@ -245,6 +247,8 @@ int main(int argc, char* argv[])
 
         for(network_data& dat : reliable_data)
         {
+            std::cout << "dat\n";
+
             for(player& p : my_state.player_list)
             {
                 if(p.id == my_state.reliable_ordered.get_owner_id_from_packet(dat.object, dat.packet_id))
