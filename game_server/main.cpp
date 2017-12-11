@@ -213,6 +213,12 @@ int main(int argc, char* argv[])
                 {
                     my_state.process_generic_message(my_server, fetch, store, message::PACKET_ACK);
                 }
+                else if(type == message::FORWARDING_ORDERED_RELIABLE)
+                {
+                    int32_t player_id = my_state.sockaddr_to_playerid(store);
+
+                    my_state.reliable_ordered.handle_forwarding_ordered_reliable(fetch, player_id);
+                }
                 else
                 {
                     printf("err %i ", type);
@@ -233,6 +239,23 @@ int main(int argc, char* argv[])
             }
                 ///client pushing data to other clients
         }
+
+        std::vector<network_data> reliable_data;
+        my_state.reliable_ordered.make_packets_available_into(reliable_data);
+
+        for(network_data& dat : reliable_data)
+        {
+            for(player& p : my_state.player_list)
+            {
+                if(p.id == my_state.reliable_ordered.get_owner_id_from_packet(dat.object, dat.packet_id))
+                    continue;
+
+                my_state.reliable_ordered.forward_data_to(p.sock, (const sockaddr*)&p.store, dat.object, dat.data);
+            }
+        }
+
+
+        reliable_data.clear();
 
         sf::sleep(sf::milliseconds(1));
 

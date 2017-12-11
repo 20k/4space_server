@@ -161,14 +161,33 @@ struct forward_packet
     int32_t canary_second;
 };
 
+inline
+void move_forward_packet_to_network_data(forward_packet& packet, network_data& out)
+{
+    out.data = serialise();
+
+    out.object = packet.no;
+    out.data.data = std::move(packet.fetch.ptr);
+    out.packet_id = packet.header.packet_id;
+
+    /*packet_ack ack;
+    ack.owner_id = packet.no.owner_id;
+    ack.packet_id = packet.header.packet_id;
+    ack.sequence_id = packet.header.sequence_number;*/
+}
+
 struct network_packet_fragment_info_send
 {
     byte_vector data;
+
+    bool fragment_ack = false;
 };
 
 struct network_packet_info_send
 {
     std::map<sequence_data_type, network_packet_fragment_info_send> fragment_info;
+
+    bool full_packet_ack = false;
 };
 
 struct network_owner_info_send
@@ -180,7 +199,6 @@ struct network_owner_info_send
         packet_info[pid].fragment_info[sid].data = vec;
     }
 };
-
 
 struct network_packet_fragment_info_recv
 {
@@ -199,6 +217,8 @@ struct network_packet_info_recv
 
     bool has_full_packet = false;
 
+    int from = -1;
+
     void sort_fragments()
     {
         std::sort(fragments.begin(), fragments.end(),
@@ -213,7 +233,20 @@ struct network_owner_info_recv
 {
     std::map<packet_id_type, network_packet_info_recv> packet_info;
 
-    std::vector<forward_packet> full_packets;
+    std::deque<forward_packet> full_packets;
+    std::map<packet_id_type, bool> made_available;
+
+    packet_id_type last_received = -1;
+
+    void set_from(packet_id_type pid, int tf)
+    {
+        packet_info[pid].from = tf;
+    }
+
+    int get_from(packet_id_type pid)
+    {
+        return packet_info[pid].from;
+    }
 
     void store_serialise_id(packet_id_type pid, serialise_data_type sid)
     {
@@ -245,6 +278,14 @@ struct network_owner_info_recv
         packet_info[pid].sort_fragments();
     }
 
+    void sort_received_packets()
+    {
+        std::sort(full_packets.begin(), full_packets.end(),
+                  [](forward_packet& p1, forward_packet& p2){return p1.header.packet_id < p2.header.packet_id;});
+    }
+
+    ///So. We need to sort received packets, request any that we dont have
+
     std::vector<packet_fragment>& get_fragments(packet_id_type pid)
     {
         return packet_info[pid].fragments;
@@ -260,9 +301,53 @@ struct network_owner_info_recv
         if(has_full_packet(pack.header.packet_id))
             return;
 
+        if(last_received == -1)
+        {
+            last_received = pack.header.packet_id-1;
+        }
+
         full_packets.push_back(pack);
 
         packet_info[pack.header.packet_id].has_full_packet = true;
+    }
+
+    void make_full_packets_available_into(std::vector<network_data>& into)
+    {
+        sort_received_packets();
+
+        for(int i=0; i < full_packets.size(); i++)
+        {
+            forward_packet& packet = full_packets[i];
+
+            if(made_available[packet.header.packet_id])
+                continue;
+
+            bool add = false;
+
+            if(packet.header.packet_id <= last_received)
+            {
+                add = true;
+
+                std::cout << "warning mixed packets" << std::endl;
+            }
+
+            if(packet.header.packet_id == last_received + 1)
+            {
+                add = true;
+
+                last_received = packet.header.packet_id;
+            }
+
+            if(add)
+            {
+                made_available[packet.header.packet_id] = true;
+
+                network_data out;
+                move_forward_packet_to_network_data(packet, out);
+
+                into.push_back(out);
+            }
+        }
     }
 };
 
@@ -307,12 +392,15 @@ struct network_reliable_ordered
     packet_id_type next_packet_id = 0;
     packet_id_type last_confirmed_packet_id = 0;
 
-    //owner_to_packet_id_to_sequence_number_to_data
-
     std::map<serialise_owner_type, network_owner_info_send> sending_owner_to_packet_info;
     std::map<serialise_owner_type, network_owner_info_recv> receiving_owner_to_packet_info;
 
 public:
+
+    int get_owner_id_from_packet(network_object& no, packet_id_type pid)
+    {
+        return receiving_owner_to_packet_info[no.owner_id].get_from(pid);
+    }
 
     void init_server(){serv = true;}
     void init_client(){serv = false;}
@@ -320,7 +408,9 @@ public:
     bool is_server(){return serv;}
     bool is_client(){return !serv;}
 
-    void forward_data_to_server(udp_sock& sock, const sockaddr* store, const network_object& no, serialise& s)
+    ///Hmm. This should work for sending to clients as well?
+    ///We probably don't want to use broadcasting
+    void forward_data_to(udp_sock& sock, const sockaddr* store, const network_object& no, serialise& s)
     {
         int max_to_send = 20;
 
@@ -358,7 +448,7 @@ public:
         next_packet_id = next_packet_id + 1;
     }
 
-    void handle_forwarding_ordered_reliable(byte_fetch& fetch)
+    void handle_forwarding_ordered_reliable(byte_fetch& fetch, int from_id)
     {
         forward_packet packet = decode_forward(fetch);
 
@@ -371,6 +461,8 @@ public:
         int packet_fragments = get_packet_fragments(real_overall_data_length);
 
         network_owner_info_recv& receiving_data = receiving_owner_to_packet_info[no.owner_id];
+
+        receiving_data.set_from(header.packet_id, from_id);
 
         receiving_data.store_serialise_id(header.packet_id, no.serialise_id);
 
@@ -444,6 +536,14 @@ public:
         if(found_end != canary_end)
         {
             printf("forwarding error\n");
+        }
+    }
+
+    void make_packets_available_into(std::vector<network_data>& into)
+    {
+        for(auto& i : receiving_owner_to_packet_info)
+        {
+            i.second.make_full_packets_available_into(into);
         }
     }
 
