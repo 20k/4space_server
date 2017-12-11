@@ -584,7 +584,7 @@ struct network_reliable_ordered
 {
     bool serv = false;
     packet_id_type next_packet_id = 0;
-    packet_id_type last_confirmed_packet_id = 0;
+    //packet_id_type last_confirmed_packet_id = 0;
 
     std::map<serialise_owner_type, network_owner_info_send> sending_owner_to_packet_info;
     std::map<serialise_owner_type, network_owner_info_recv> receiving_owner_to_packet_info;
@@ -716,13 +716,11 @@ public:
 
     ///Hmm. This should work for sending to clients as well?
     ///We probably don't want to use broadcasting
-    void forward_data_to(udp_sock& sock, const sockaddr* store, const network_object& no, serialise& s)
+    void forward_data_to(udp_sock& sock, const sockaddr* store, const network_object& no, serialise& s, int player_id)
     {
         int max_to_send = 20;
 
         int fragments = get_packet_fragments(s.data.size());
-
-        bool should_slowdown = false;
 
         /*for(auto& i : last_unconfirmed_packet)
         {
@@ -735,6 +733,28 @@ public:
 
         if(should_slowdown)
             max_to_send = 1;*/
+
+        bool should_slowdown = false;
+
+        if(is_client())
+        {
+            if(next_packet_id >= last_ack_from_server + 500)
+            {
+                should_slowdown = true;
+            }
+        }
+        else if(is_server())
+        {
+            ///hmm. Won't work 100% properly with multiple players
+            ///would need per player tracking
+            if(next_packet_id >= player_to_last_ack[player_id] + 500)
+            {
+                should_slowdown = true;
+            }
+        }
+
+        if(should_slowdown)
+            max_to_send = 1;
 
         for(int i=0; i<fragments; i++)
         {

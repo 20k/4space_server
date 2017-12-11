@@ -263,7 +263,7 @@ int main(int argc, char* argv[])
                 if(p.id == my_state.reliable_ordered.get_owner_id_from_packet(dat.object, dat.packet_id))
                     continue;
 
-                my_state.reliable_ordered.forward_data_to(p.sock, (const sockaddr*)&p.store, dat.object, dat.data);
+                my_state.reliable_ordered.forward_data_to(p.sock, (const sockaddr*)&p.store, dat.object, dat.data, p.id);
             }
         }
 
