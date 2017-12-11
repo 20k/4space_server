@@ -370,7 +370,7 @@ forward_packet decode_forward(byte_fetch& fetch)
     return ret;
 }
 
-#pragma pack(1)
+/*#pragma pack(1)
 struct packet_request
 {
     serialise_owner_type owner_id = 0;
@@ -379,10 +379,24 @@ struct packet_request
     serialise_data_type serialise_id;
 };
 
+///packet acks were purely used for rate limiting
+///which is extremely wasteful
+///maybe just ack every 10th packet or something
+///or, ack range every 1 second
 struct packet_ack
 {
     serialise_owner_type owner_id = 0;
     sequence_data_type sequence_id = 0;
+    packet_id_type packet_id = 0;
+};*/
+
+#pragma pack(1)
+struct packet_request_range
+{
+    serialise_owner_type owner_id = 0;
+    sequence_data_type sequence_id_start = 0;
+    sequence_data_type sequence_id_end = 0;
+
     packet_id_type packet_id = 0;
 };
 
@@ -443,7 +457,11 @@ public:
 
                 //udp_send_to(sock, frag.ptr, store);
 
-                udp_send(sock, frag.ptr);
+                if(is_client())
+                    udp_send(sock, frag.ptr);
+
+                if(is_server())
+                    udp_send_to(sock, frag.ptr, store);
             }
         }
 
