@@ -695,6 +695,8 @@ public:
 
         //while(!sock_writable(sock)) {}
 
+        //std::cout << "SSREQ\n";
+
         portable_send(sock, store, vec.ptr);
     }
 

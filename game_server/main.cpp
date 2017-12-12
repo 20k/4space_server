@@ -248,7 +248,6 @@ int main(int argc, char* argv[])
 
                 my_state.reset_player_disconnect_timer(store);
             }
-                ///client pushing data to other clients
         }
 
         std::vector<network_data> reliable_data;
@@ -263,7 +262,7 @@ int main(int argc, char* argv[])
                 if(p.id == my_state.reliable_ordered.get_owner_id_from_packet(dat.object, dat.packet_id))
                     continue;
 
-                my_state.reliable_ordered.forward_data_to(p.sock, (const sockaddr*)&p.store, dat.object, dat.data, p.id);
+                my_state.reliable_ordered.forward_data_to(my_server, (const sockaddr*)&p.store, dat.object, dat.data, p.id);
             }
         }
 
@@ -286,7 +285,7 @@ int main(int argc, char* argv[])
                 ///this isn't fine, FIXME (it is possible)
                 for(player& p : my_state.player_list)
                 {
-                    my_state.reliable_ordered.make_packet_request(p.sock, (const sockaddr*)&p.store, ran);
+                    my_state.reliable_ordered.make_packet_request(my_server, (const sockaddr*)&p.store, ran);
                 }
             }
         }
@@ -302,7 +301,7 @@ int main(int argc, char* argv[])
 
         my_state.reliable_ordered.unacked.clear();
 
-        sf::sleep(sf::milliseconds(1));
+        sf::sleep(sf::milliseconds(4));
 
 
         //my_state.tick();
