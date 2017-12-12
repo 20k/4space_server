@@ -283,6 +283,7 @@ int main(int argc, char* argv[])
             for(packet_request_range& ran : range)
             {
                 ///well... this is unfortunate
+                ///this isn't fine, FIXME (it is possible)
                 for(player& p : my_state.player_list)
                 {
                     my_state.reliable_ordered.make_packet_request(p.sock, (const sockaddr*)&p.store, ran);

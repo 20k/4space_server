@@ -204,6 +204,22 @@ struct network_packet_fragment_info_send
     byte_vector data;
 
     bool fragment_ack = false;
+
+    bool ever_sent = false;
+    sf::Clock time_since_sent;
+
+    bool should_send()
+    {
+        float resend_time = 0.2f;
+
+        return !ever_sent || ((time_since_sent.getElapsedTime().asMicroseconds() / 1000. / 1000.) > resend_time);
+    }
+
+    void set_sent()
+    {
+        ever_sent = true;
+        time_since_sent.restart();
+    }
 };
 
 struct network_packet_info_send
@@ -224,6 +240,28 @@ struct network_packet_info_send
 
         return ret;
     }
+
+
+    std::vector<byte_vector> get_fragments_to_send_rate_limited(int start, int fin)
+    {
+        std::vector<byte_vector> ret;
+
+        for(int i=start; i < fin && i < fragment_info.size(); i++)
+        {
+            if(fragment_info[i].should_send())
+            {
+                fragment_info[i].set_sent();
+            }
+            else
+            {
+                continue;
+            }
+
+            ret.push_back(fragment_info[i].data);
+        }
+
+        return ret;
+    }
 };
 
 struct network_owner_info_send
@@ -238,6 +276,14 @@ struct network_owner_info_send
     std::vector<byte_vector> get_fragments(packet_id_type pid, int start, int fin)
     {
         return packet_info[pid].get_fragments(start, fin);
+    }
+
+    std::vector<byte_vector> get_fragments_to_send_rate_limited(packet_id_type pid, int start, int fin)
+    {
+        if(packet_info.find(pid) == packet_info.end())
+            return std::vector<byte_vector>();
+
+        return packet_info[pid].get_fragments_to_send_rate_limited(start, fin);
     }
 };
 
@@ -255,6 +301,8 @@ struct network_packet_info_recv
 
     std::vector<packet_fragment> fragments;
     std::map<sequence_data_type, bool> has_fragment;
+    std::map<sequence_data_type, sf::Clock> timers;
+    std::map<sequence_data_type, bool> once;
 
     bool has_full_packet = false;
 
@@ -293,9 +341,28 @@ struct network_packet_info_recv
         next_to_send.owner_id = sid;
         next_to_send.packet_id = pid;
 
+        int max_seq_length = 120;
+
         for(int i=0; i < packet_fragments_num; i++)
         {
-            if(!has_fragment[i])
+            bool fragment_is_valid = has_fragment[i];
+
+            if((timers[i].getElapsedTime().asMicroseconds() / 1000. / 1000.) > 0.2f || !once[i])
+            {
+                once[i] = true;
+                timers[i].restart();
+            }
+            else
+            {
+                fragment_is_valid = true;
+            }
+
+            if(next_to_send.sequence_id_end - next_to_send.sequence_id_start > max_seq_length)
+            {
+                fragment_is_valid = true;
+            }
+
+            if(!fragment_is_valid)
             {
                 ///we haven't received this fragment
                 ///and we haven't started a range
@@ -303,7 +370,7 @@ struct network_packet_info_recv
                 {
                     ///start range
                     next_to_send.sequence_id_start = i;
-                    continue;
+                    //continue;
                 }
 
                 ///we haven't received this fragment and we've started a range
@@ -318,6 +385,8 @@ struct network_packet_info_recv
                 {
                     ///one past end
                     next_to_send.sequence_id_end += 1;
+
+                    std::cout << next_to_send.packet_id << " st " << next_to_send.sequence_id_start << " end " << next_to_send.sequence_id_end << std::endl;
 
                     ret.push_back(next_to_send);
 
@@ -378,6 +447,16 @@ struct network_owner_info_recv
         if(packet_info[pid].has_fragment[frag.sequence_number])
             return;
 
+        if(last_received == -1)
+        {
+            last_received = pid - 1;
+        }
+
+        if(pid < last_received)
+        {
+            last_received = pid-1;
+        }
+
         packet_info[pid].fragments.push_back(frag);
 
         packet_info[pid].has_fragment[frag.sequence_number] = true;
@@ -415,11 +494,6 @@ struct network_owner_info_recv
     {
         if(has_full_packet(pack.header.packet_id))
             return;
-
-        if(last_received == -1)
-        {
-            last_received = pack.header.packet_id-1;
-        }
 
         full_packets.push_back(pack);
 
@@ -494,6 +568,9 @@ struct network_owner_info_recv
     }
 
     ///need to do rate limiting next!
+    ///Ok so the transfer rate problem goes like this:
+    ///we're requesting rate limiting for PACKETS not fragments
+    ///but we gotta do it fragmentwise otherwise the transfer rate is too poor
     std::vector<packet_request_range> request_incomplete_packets(serialise_owner_type oid)
     {
         sort_received_packets();
@@ -504,7 +581,7 @@ struct network_owner_info_recv
         ///that'll be throttled on sending i guess?
         int max_request_packets = 20;
 
-        int last_fragment = last_received + 1;
+        int last_fragment = last_received + 2;
 
         if(full_packets.size() != 0)
         {
@@ -515,7 +592,7 @@ struct network_owner_info_recv
 
         for(packet_id_type i=last_received+1; i < last_fragment; i++)
         {
-            if(should_request_packet(i))
+            //if(should_request_packet(i) || received_any_fragments(i))
             {
                 if(received_any_fragments(i))
                 {
@@ -687,6 +764,8 @@ public:
     {
         packet_request_range range = fetch.get<packet_request_range>();
 
+        //std::cout << "REQ " << range.packet_id << " ST " << range.sequence_id_start << " END " << range.sequence_id_end << std::endl;
+
         int32_t found_canary_end = fetch.get<decltype(canary_end)>();
 
         if(found_canary_end != canary_end)
@@ -695,9 +774,19 @@ public:
             return;
         }
 
-        int max_send = 20;
+        ///we want to do rate limiting here
+        ///suppress resending of packets we've already sent recently
+        ///TODO TOMORROW
+        ///change arg to take a from player arg
+        ///change get fragments to get_fragments_to_send
+        ///and make it time argument dependent (for suppression)
+        ///should massively improve throughput as server can request as fast as possible
+        ///at relatively low bandwidth
+        ///and client can respond only to new data
+        ///and not just send the first 40 elements in a range
+        int max_send = 80;
 
-        std::vector<byte_vector> dat = sending_owner_to_packet_info[range.owner_id].get_fragments(range.packet_id, range.sequence_id_start, range.sequence_id_end);
+        std::vector<byte_vector> dat = sending_owner_to_packet_info[range.owner_id].get_fragments_to_send_rate_limited(range.packet_id, range.sequence_id_start, range.sequence_id_end);
 
         if(dat.size() > max_send)
         {
@@ -709,6 +798,8 @@ public:
             ///don't have the data
             if(f2.ptr.size() == 0)
                 continue;
+
+            //while(!sock_writable(sock)){}
 
             portable_send(sock, store, f2.ptr);
         }
