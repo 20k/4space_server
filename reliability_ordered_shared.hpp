@@ -331,6 +331,8 @@ struct network_packet_info_recv
         return fragments.size() == packet_fragments_num;
     }
 
+    #define MAX_REQUEST_RESPONSES 200
+
     std::vector<packet_request_range> get_requests(serialise_owner_type sid, packet_id_type pid)
     {
         std::vector<packet_request_range> ret;
@@ -341,13 +343,13 @@ struct network_packet_info_recv
         next_to_send.owner_id = sid;
         next_to_send.packet_id = pid;
 
-        int max_seq_length = 120;
+        int max_seq_length = MAX_REQUEST_RESPONSES;
 
         for(int i=0; i < packet_fragments_num; i++)
         {
             bool fragment_is_valid = has_fragment[i];
 
-            if((timers[i].getElapsedTime().asMicroseconds() / 1000. / 1000.) > 0.2f || !once[i])
+            if((timers[i].getElapsedTime().asMicroseconds() / 1000. / 1000.) > 0.1f || !once[i])
             {
                 once[i] = true;
                 timers[i].restart();
@@ -386,13 +388,16 @@ struct network_packet_info_recv
                     ///one past end
                     next_to_send.sequence_id_end += 1;
 
-                    std::cout << next_to_send.packet_id << " st " << next_to_send.sequence_id_start << " end " << next_to_send.sequence_id_end << std::endl;
+                    //std::cout << next_to_send.packet_id << " st " << next_to_send.sequence_id_start << " end " << next_to_send.sequence_id_end << std::endl;
 
                     ret.push_back(next_to_send);
 
                     next_to_send.sequence_id_start = -1;
                 }
             }
+
+            if(ret.size() >= 5)
+                break;
         }
 
         next_to_send.sequence_id_end = packet_fragments_num;
@@ -452,10 +457,10 @@ struct network_owner_info_recv
             last_received = pid - 1;
         }
 
-        if(pid < last_received)
+        /*if(pid < last_received)
         {
             last_received = pid-1;
-        }
+        }*/
 
         packet_info[pid].fragments.push_back(frag);
 
@@ -487,6 +492,9 @@ struct network_owner_info_recv
 
     bool has_full_packet(packet_id_type pid)
     {
+        if(packet_info.find(pid) == packet_info.end())
+            return false;
+
         return packet_info[pid].has_full_packet;
     }
 
@@ -590,10 +598,18 @@ struct network_owner_info_recv
 
         int num = 0;
 
+        ///we're duping packet requests
+        ///FIXME
         for(packet_id_type i=last_received+1; i < last_fragment; i++)
         {
             //if(should_request_packet(i) || received_any_fragments(i))
             {
+                if(made_available[i])
+                    continue;
+
+                if(has_full_packet(i))
+                    continue;
+
                 if(received_any_fragments(i))
                 {
                     std::vector<packet_request_range> ranges = packet_info[i].get_requests(oid, i);
@@ -605,7 +621,7 @@ struct network_owner_info_recv
                         ret.push_back(kk);
                     }
                 }
-                else
+                else if(should_request_packet(i))
                 {
                     packet_request_range prr;
                     prr.owner_id = oid;
@@ -617,6 +633,8 @@ struct network_owner_info_recv
 
                     num++;
                 }
+
+                //std::cout << "REQing " << i << std::endl;
 
                 request_packet(i);
 
@@ -697,6 +715,11 @@ public:
 
         //std::cout << "SSREQ\n";
 
+        /*if(is_client())
+        {
+            std::cout << "Requst " << "oid " << request.owner_id << " "<< request.packet_id << " st " << request.sequence_id_start << " end " << request.sequence_id_end << std::endl;
+        }*/
+
         portable_send(sock, store, vec.ptr);
     }
 
@@ -731,7 +754,7 @@ public:
         {
             last_ack_from_server = ack.packet_id;
 
-            std::cout << last_ack_from_server << std::endl;
+            //std::cout << last_ack_from_server << std::endl;
         }
 
         if(is_server())
@@ -766,7 +789,8 @@ public:
     {
         packet_request_range range = fetch.get<packet_request_range>();
 
-        //std::cout << "REQ " << range.packet_id << " ST " << range.sequence_id_start << " END " << range.sequence_id_end << std::endl;
+        //if(is_server())
+        //    std::cout << "REQ " << range.packet_id << " ST " << range.sequence_id_start << " END " << range.sequence_id_end << std::endl;
 
         int32_t found_canary_end = fetch.get<decltype(canary_end)>();
 
@@ -776,17 +800,7 @@ public:
             return;
         }
 
-        ///we want to do rate limiting here
-        ///suppress resending of packets we've already sent recently
-        ///TODO TOMORROW
-        ///change arg to take a from player arg
-        ///change get fragments to get_fragments_to_send
-        ///and make it time argument dependent (for suppression)
-        ///should massively improve throughput as server can request as fast as possible
-        ///at relatively low bandwidth
-        ///and client can respond only to new data
-        ///and not just send the first 40 elements in a range
-        int max_send = 80;
+        int max_send = MAX_REQUEST_RESPONSES;
 
         std::vector<byte_vector> dat = sending_owner_to_packet_info[range.owner_id].get_fragments_to_send_rate_limited(range.packet_id, range.sequence_id_start, range.sequence_id_end);
 
@@ -794,6 +808,11 @@ public:
         {
             dat.resize(max_send);
         }
+
+        ///server appears to respond... which then makes it stop sending packets for some reason
+        //std::cout << "responding ";
+
+        bool fulfilled = false;
 
         for(byte_vector& f2 : dat)
         {
@@ -804,6 +823,13 @@ public:
             //while(!sock_writable(sock)){}
 
             portable_send(sock, store, f2.ptr);
+
+            fulfilled = true;
+        }
+
+        if(is_server())
+        {
+            //std::cout << "Could fulfill\n";
         }
     }
 
@@ -814,18 +840,6 @@ public:
         int max_to_send = 20;
 
         int fragments = get_packet_fragments(s.data.size());
-
-        /*for(auto& i : last_unconfirmed_packet)
-        {
-            if(disconnected(i.first))
-                continue;
-
-            if(i.second < (int)packet_id - 2000)
-                should_slowdown = true;
-        }
-
-        if(should_slowdown)
-            max_to_send = 1;*/
 
         bool should_slowdown = false;
 
@@ -869,6 +883,9 @@ public:
         next_packet_id = next_packet_id + 1;
     }
 
+    ///suspect logic error here
+    ///we're successfully receiving request packets, but for some reason rerequest them after
+    ///and dont log data
     void handle_forwarding_ordered_reliable(byte_fetch& fetch, int from_id)
     {
         forward_packet packet = decode_forward(fetch);
@@ -887,10 +904,33 @@ public:
 
         receiving_data.store_serialise_id(header.packet_id, no.serialise_id);
 
+        if(is_server())
+        {
+            std::cout << "r " << packet.header.packet_id << " s " << packet.header.sequence_number << std::endl;
+        }
+
+        /*if(is_client())
+        {
+            if(packet.header.packet_id < 200)
+            {
+                std::cout << "o " << packet.no.owner_id << " r " << packet.header.packet_id << " s " << packet.header.sequence_number << std::endl;
+            }
+        }*/
+
+        if(is_client())
+        {
+            std::cout << "o " << packet.no.owner_id << " r " << packet.header.packet_id << " s " << packet.header.sequence_number << std::endl;
+        }
+
         //disconnection_timer[no.owner_id].restart();
 
+        ///somethings up with packet requests
+        ///something getting lost, or we have bad state
         if(packet_fragments > 1)
         {
+            /*if(is_client() && packet.header.packet_id < 200)
+                std::cout << "MULTI\n";*/
+
             receiving_data.store_expected_packet_fragments_num(header.packet_id, packet_fragments);
 
             ///INSERT PACKET INTO PACKETS
@@ -944,6 +984,9 @@ public:
         }
         else
         {
+            /*if(is_client() && packet.header.packet_id < 200)
+                std::cout << "SINGLE\n";*/
+
             if(!receiving_data.has_full_packet(header.packet_id))
             {
                 forward_packet full_forward = packet;
@@ -971,6 +1014,8 @@ public:
                 packet_ack ack;
                 ack.host_player_id = to_ack.first;
                 ack.packet_id = to_ack.second;
+
+                std::cout << ack.packet_id << std::endl;
 
                 unacked.push_back(ack);
             }

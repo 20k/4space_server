@@ -68,12 +68,12 @@ int main(int argc, char* argv[])
     uint32_t pnum = atoi(host_port.c_str());
 
     udp_sock my_server = udp_host(host_port);
-    sock_set_non_blocking(my_server, 1);
+    //sock_set_non_blocking(my_server, 1);
 
     printf("Registered on port %s\n", my_server.get_host_port().c_str());
 
     server_game_state my_state;
-    my_state.mode_handler.shared_game_state.current_game_mode = game_mode::FFA;
+    //my_state.mode_handler.shared_game_state.current_game_mode = game_mode::FFA;
     my_state.reliable_ordered.init_server();
 
     //my_state.set_map(0);
@@ -163,15 +163,15 @@ int main(int argc, char* argv[])
                     my_state.process_received_message(fetch, store);
                 }
 
-                else if(type == message::REPORT)
+                /*else if(type == message::REPORT)
                 {
                     my_state.process_reported_message(fetch, store);
-                }
-                else if(type == message::RESPAWNREQUEST)
+                }*/
+                /*else if(type == message::RESPAWNREQUEST)
                 {
                     my_state.process_respawn_request(my_server, fetch, store);
-                }
-                else if(type == message::FORWARDING_RELIABLE)
+                }*/
+                /*else if(type == message::FORWARDING_RELIABLE)
                 {
                     int32_t player_id = my_state.sockaddr_to_playerid(store);
 
@@ -193,7 +193,7 @@ int main(int argc, char* argv[])
                 else if(type == message::FORWARDING_RELIABLE_ACK)
                 {
                     my_state.reliable.process_ack(fetch);
-                }
+                }*/
                 else if(type == message::PING_RESPONSE)
                 {
                     my_state.process_ping_response(my_server, fetch, store);
@@ -255,7 +255,7 @@ int main(int argc, char* argv[])
 
         for(network_data& dat : reliable_data)
         {
-            std::cout << "dat av " << dat.packet_id << std::endl;
+            //std::cout << "dat av " << dat.packet_id << std::endl;
 
             for(player& p : my_state.player_list)
             {
@@ -296,7 +296,7 @@ int main(int argc, char* argv[])
 
             my_state.reliable_ordered.make_packet_ack(p.sock, (const sockaddr*)&p.store, ack);
 
-            std::cout << "send_ack\n" << ack.host_player_id << std::endl;
+            //std::cout << "send_ack\n" << ack.host_player_id << std::endl;
         }
 
         my_state.reliable_ordered.unacked.clear();
@@ -318,7 +318,7 @@ int main(int argc, char* argv[])
 
         my_state.cull_disconnected_players();
 
-        my_state.reliable.tick(&my_state);
+        //my_state.reliable.tick(&my_state);
 
         ///should do tick ping
         if(my_state.ping_interval_clk.getElapsedTime().asMicroseconds() / 1000.f >= my_state.ping_interval_ms)

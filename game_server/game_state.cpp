@@ -95,7 +95,7 @@ void server_game_state::add_player(udp_sock& sock, sockaddr_storage store)
 
     player_list.push_back(play);
 
-    reliable.add_player(id);
+    //reliable.add_player(id);
 }
 
 int16_t server_game_state::get_new_id()
@@ -163,8 +163,8 @@ void server_game_state::cull_disconnected_players()
         {
             printf("Player timeout\n");// %s:%s\n", get_peer_ip(player_list[i]].store))
 
-            reliable.remove_player(player_list[i].id);
-            mode_handler.shared_game_state.remove_player_entry(player_list[i].id);
+            //reliable.remove_player(player_list[i].id);
+            //mode_handler.shared_game_state.remove_player_entry(player_list[i].id);
 
             player_list.erase(player_list.begin() + i);
             i--;
@@ -359,6 +359,7 @@ void server_game_state::tick()
 
     int players_needed_to_confirm_kill = (player_list.size() * player_kill_confirm);
 
+    #if 0
     for(auto it = kill_confirmer.begin(); it != kill_confirmer.end();)
     {
         int32_t who_is_reported_dead = it->first;
@@ -459,6 +460,7 @@ void server_game_state::tick()
             i--;
         }
     }
+    #endif
 }
 
 void server_game_state::process_received_message(byte_fetch& arg, sockaddr_storage& who)
@@ -533,6 +535,7 @@ void server_game_state::process_received_message(byte_fetch& arg, sockaddr_stora
     #endif
 }
 
+#if 0
 void server_game_state::process_reported_message(byte_fetch& arg, sockaddr_storage& who)
 {
     byte_fetch fetch = arg;
@@ -592,9 +595,14 @@ void server_game_state::process_reported_message(byte_fetch& arg, sockaddr_stora
 
     arg = fetch;
 }
+#endif
 
 void server_game_state::process_join_request(udp_sock& my_server, byte_fetch& fetch, sockaddr_storage& who)
 {
+    std::cout << gid << std::endl;
+
+    return;
+
     int32_t found_end = fetch.get<int32_t>();
 
     if(found_end != canary_end)
@@ -602,12 +610,13 @@ void server_game_state::process_join_request(udp_sock& my_server, byte_fetch& fe
 
     printf("Player joined %s:%s\n", get_addr_ip(who).c_str(), get_addr_port(who).c_str());
 
+
     add_player(my_server, who);
     ///really need to pipe back player id
 
     int32_t new_player_id = player_list.back().id;
 
-    mode_handler.shared_game_state.make_player_entry(new_player_id);
+    //mode_handler.shared_game_state.make_player_entry(new_player_id);
 
     ///should really dynamically organise teams
     ///so actually that's what I'll do
@@ -622,6 +631,7 @@ void server_game_state::process_join_request(udp_sock& my_server, byte_fetch& fe
     printf("sending ack to pid %i\n", new_player_id);
 }
 
+#if 0
 void server_game_state::process_respawn_request(udp_sock& my_server, byte_fetch& fetch, sockaddr_storage& who)
 {
     int32_t found_end = fetch.get<int32_t>();
@@ -643,6 +653,7 @@ void server_game_state::process_respawn_request(udp_sock& my_server, byte_fetch&
 
     respawn_requests.push_back(req);
 }
+#endif
 
 void server_game_state::process_ping_response(udp_sock& my_server, byte_fetch& fetch, sockaddr_storage& who)
 {
@@ -869,6 +880,7 @@ void server_game_state::process_ping_response_and_forward(udp_sock& my_server, b
     broadcast(vec.ptr, none);
 }*/
 
+#if 0
 void server_game_state::respawn_player(int32_t player_id)
 {
     int team_id = get_team_from_player_id(player_id);
@@ -911,7 +923,9 @@ void server_game_state::respawn_player(int32_t player_id)
 
     udp_send_to(play.sock, vec.ptr, (const sockaddr*)&play.store);
 }
+#endif
 
+#if 0
 void server_game_state::ensure_player_info_entry()
 {
     for(player& p : player_list)
@@ -919,6 +933,9 @@ void server_game_state::ensure_player_info_entry()
         mode_handler.shared_game_state.make_player_entry(p.id);
     }
 }
+#endif
+
+#if 0
 
 vec2f server_game_state::find_respawn_position(int team_id)
 {
@@ -1220,3 +1237,4 @@ bool game_mode_handler::game_over()
 {
     return shared_game_state.current_session_state.game_over(shared_game_state.current_session_boundaries);
 }
+#endif

@@ -98,24 +98,24 @@ struct server_game_state
 {
     packet_clumper packet_clump;
 
-    server_reliability_manager reliable;
+    //server_reliability_manager reliable;
 
     network_reliable_ordered reliable_ordered;
 
     int max_players = 10;
 
-    int map_num = 0; ///????
-    std::vector<std::vector<vec2f>> respawn_positions;
+    //int map_num = 0; ///????
+    //std::vector<std::vector<vec2f>> respawn_positions;
 
-    std::vector<respawn_request> respawn_requests;
+    //std::vector<respawn_request> respawn_requests;
 
     ///we really need to handle this all serverside
     ///which means the server is gunna have to keep track
     ///lets implement a simple kill counter
-    game_mode_handler mode_handler;
+    //game_mode_handler mode_handler;
 
     ///maps player id who died to kill count structure
-    std::map<int32_t, kill_count_timer> kill_confirmer;
+    //std::map<int32_t, kill_count_timer> kill_confirmer;
 
     int16_t gid = 0;
 
