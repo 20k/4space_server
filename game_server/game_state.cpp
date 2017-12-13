@@ -599,10 +599,6 @@ void server_game_state::process_reported_message(byte_fetch& arg, sockaddr_stora
 
 void server_game_state::process_join_request(udp_sock& my_server, byte_fetch& fetch, sockaddr_storage& who)
 {
-    std::cout << gid << std::endl;
-
-    return;
-
     int32_t found_end = fetch.get<int32_t>();
 
     if(found_end != canary_end)
