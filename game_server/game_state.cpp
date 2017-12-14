@@ -92,6 +92,7 @@ void server_game_state::add_player(udp_sock& sock, sockaddr_storage store)
     play.id = id;
     play.sock = sock;
     play.store = store;
+    play.reliable_ordered.init_server();
 
     player_list.push_back(play);
 
@@ -152,6 +153,17 @@ int32_t server_game_state::get_pos_from_player_id(int32_t id)
     }
 
     return -1;
+}
+
+std::optional<player*> server_game_state::get_player_ptr_from_sock(sockaddr_storage& store)
+{
+    for(player& p : player_list)
+    {
+        if(p.store == store)
+            return &p;
+    }
+
+    return std::nullopt;
 }
 
 ///need to heartbeat

@@ -6,6 +6,7 @@
 
 #include <set>
 #include <map>
+#include <optional>
 
 #include "game_modes.hpp"
 
@@ -37,6 +38,8 @@ struct player
     udp_sock sock;
     sockaddr_storage store;
     sf::Clock time_since_last_message;
+
+    network_reliable_ordered reliable_ordered;
 };
 
 ///modify this to have player_id_reported_as_killer
@@ -100,7 +103,7 @@ struct server_game_state
 
     //server_reliability_manager reliable;
 
-    network_reliable_ordered reliable_ordered;
+    //network_reliable_ordered reliable_ordered;
 
     int max_players = 10;
 
@@ -134,6 +137,7 @@ struct server_game_state
     int32_t get_team_from_player_id(int32_t id);
     player get_player_from_player_id(int32_t id);
     int32_t get_pos_from_player_id(int32_t id);
+    std::optional<player*> get_player_ptr_from_sock(sockaddr_storage& store);
 
     void broadcast(const std::vector<char>& dat, const int& to_skip);
     void broadcast(const std::vector<char>& dat, sockaddr_storage& to_skip);

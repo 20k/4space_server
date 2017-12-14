@@ -593,7 +593,7 @@ struct network_owner_info_recv
 
         if(full_packets.size() != 0)
         {
-            last_fragment = full_packets.back().header.packet_id;
+            last_fragment = full_packets.back().header.packet_id + 1;
         }
 
         int num = 0;
@@ -632,11 +632,11 @@ struct network_owner_info_recv
                     ret.push_back(prr);
 
                     num++;
+
+                    request_packet(i);
                 }
 
                 //std::cout << "REQing " << i << std::endl;
-
-                request_packet(i);
 
                 if(num >= max_request_packets)
                     break;
@@ -906,7 +906,7 @@ public:
 
         if(is_server())
         {
-            std::cout << "r " << packet.header.packet_id << " s " << packet.header.sequence_number << std::endl;
+            //std::cout << "r " << packet.header.packet_id << " s " << packet.header.sequence_number << std::endl;
         }
 
         /*if(is_client())
@@ -919,7 +919,7 @@ public:
 
         if(is_client())
         {
-            std::cout << "o " << packet.no.owner_id << " r " << packet.header.packet_id << " s " << packet.header.sequence_number << std::endl;
+            //std::cout << "o " << packet.no.owner_id << " r " << packet.header.packet_id << " s " << packet.header.sequence_number << std::endl;
         }
 
         //disconnection_timer[no.owner_id].restart();
@@ -1015,7 +1015,7 @@ public:
                 ack.host_player_id = to_ack.first;
                 ack.packet_id = to_ack.second;
 
-                std::cout << ack.packet_id << std::endl;
+                //std::cout << "made av into " << ack.packet_id << std::endl;
 
                 unacked.push_back(ack);
             }

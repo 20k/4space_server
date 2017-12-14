@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
 
     server_game_state my_state;
     //my_state.mode_handler.shared_game_state.current_game_mode = game_mode::FFA;
-    my_state.reliable_ordered.init_server();
+    //my_state.reliable_ordered.init_server();
 
     //my_state.set_map(0);
 
@@ -135,6 +135,8 @@ int main(int argc, char* argv[])
 
             byte_fetch fetch;
             fetch.ptr.swap(data);
+
+            std::optional<player*> play = my_state.get_player_ptr_from_sock(store);
 
             while(!fetch.finished() && any_read)
             {
@@ -220,15 +222,30 @@ int main(int argc, char* argv[])
 
                     my_state.reset_player_disconnect_timer(store);
 
-                    my_state.reliable_ordered.handle_forwarding_ordered_reliable(fetch, player_id);
+                    if(play)
+                    {
+                        (*play)->reliable_ordered.handle_forwarding_ordered_reliable(fetch, player_id);
+                    }
+
+                    //my_state.reliable_ordered.handle_forwarding_ordered_reliable(fetch, player_id);
                 }
                 else if(type == message::FORWARDING_ORDERED_RELIABLE_REQUEST)
                 {
-                    my_state.reliable_ordered.handle_packet_request(my_server, (const sockaddr*)&store, fetch);
+                    if(play)
+                    {
+                        (*play)->reliable_ordered.handle_packet_request(my_server, (const sockaddr*)&store, fetch);
+                    }
+
+                    //my_state.reliable_ordered.handle_packet_request(my_server, (const sockaddr*)&store, fetch);
                 }
                 else if(type == message::FORWARDING_ORDERED_RELIABLE_ACK)
                 {
-                    my_state.reliable_ordered.handle_ack(fetch);
+                    if(play)
+                    {
+                        (*play)->reliable_ordered.handle_ack(fetch);
+                    }
+
+                    //my_state.reliable_ordered.handle_ack(fetch);
                 }
                 else
                 {
@@ -250,7 +267,7 @@ int main(int argc, char* argv[])
             }
         }
 
-        std::vector<network_data> reliable_data;
+        /*std::vector<network_data> reliable_data;
         my_state.reliable_ordered.make_packets_available_into(reliable_data);
 
         for(network_data& dat : reliable_data)
@@ -264,10 +281,26 @@ int main(int argc, char* argv[])
 
                 my_state.reliable_ordered.forward_data_to(my_server, (const sockaddr*)&p.store, dat.object, dat.data, p.id);
             }
+        }*/
+
+        for(player& p : my_state.player_list)
+        {
+            std::vector<network_data> reliable_data;
+            p.reliable_ordered.make_packets_available_into(reliable_data);
+
+            for(network_data& dat : reliable_data)
+            {
+                for(player& op : my_state.player_list)
+                {
+                    if(p.id == op.id)
+                        continue;
+
+                    op.reliable_ordered.forward_data_to(my_server, (const sockaddr*)&op.store, dat.object, dat.data, op.id);
+                }
+            }
         }
 
-        reliable_data.clear();
-
+        #if 0
         for(auto& i : my_state.reliable_ordered.receiving_owner_to_packet_info)
         {
             std::vector<packet_request_range> range = i.second.request_incomplete_packets(i.first);
@@ -289,17 +322,42 @@ int main(int argc, char* argv[])
                 }
             }
         }
+        #endif // 0
 
-        for(packet_ack& ack : my_state.reliable_ordered.unacked)
+        for(player& p : my_state.player_list)
+        {
+            for(auto& i : p.reliable_ordered.receiving_owner_to_packet_info)
+            {
+                std::vector<packet_request_range> range = i.second.request_incomplete_packets(i.first);
+
+                ///packet guaranteed to be from this player
+                for(packet_request_range& ran : range)
+                {
+                    p.reliable_ordered.make_packet_request(my_server, (const sockaddr*)&p.store, ran);
+                }
+            }
+        }
+
+        /*for(packet_ack& ack : my_state.reliable_ordered.unacked)
         {
             player p = my_state.get_player_from_player_id(ack.host_player_id);
 
             my_state.reliable_ordered.make_packet_ack(p.sock, (const sockaddr*)&p.store, ack);
 
             //std::cout << "send_ack\n" << ack.host_player_id << std::endl;
+        }*/
+
+        for(player& p : my_state.player_list)
+        {
+            for(packet_ack& ack : p.reliable_ordered.unacked)
+            {
+                p.reliable_ordered.make_packet_ack(my_server, (const sockaddr*)&p.store, ack);
+            }
+
+            p.reliable_ordered.unacked.clear();
         }
 
-        my_state.reliable_ordered.unacked.clear();
+        //my_state.reliable_ordered.unacked.clear();
 
         sf::sleep(sf::milliseconds(4));
 
