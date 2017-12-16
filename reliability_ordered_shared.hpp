@@ -726,7 +726,7 @@ public:
         portable_send(sock, store, vec.ptr);
     }
 
-    void process_acks_client(udp_sock& sock, const sockaddr* store)
+    void process_acks(udp_sock& sock, const sockaddr* store)
     {
         for(packet_ack& ack : unacked)
         {
@@ -755,7 +755,7 @@ public:
         }
     }
 
-    void request_all_packets_client(udp_sock& sock, const sockaddr* store)
+    void request_all_packets(udp_sock& sock, const sockaddr* store)
     {
         for(auto& i : receiving_owner_to_packet_info)
         {
