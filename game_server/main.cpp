@@ -224,7 +224,7 @@ int main(int argc, char* argv[])
 
                     if(play)
                     {
-                        (*play)->reliable_ordered.handle_forwarding_ordered_reliable(fetch, player_id);
+                        (*play)->reliable_ordered.handle_forwarding_ordered_reliable(fetch);
                     }
 
                     //my_state.reliable_ordered.handle_forwarding_ordered_reliable(fetch, player_id);

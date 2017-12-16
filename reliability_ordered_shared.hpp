@@ -168,7 +168,7 @@ struct forward_packet
 ///or, ack range every 1 second
 struct packet_ack
 {
-    serialise_owner_type host_player_id = 0;
+    //serialise_owner_type host_player_id = 0;
     //sequence_data_type sequence_id = 0;
     packet_id_type packet_id = 0;
 };
@@ -306,8 +306,6 @@ struct network_packet_info_recv
 
     bool has_full_packet = false;
 
-    int from = -1;
-
     //sf::Clock last_requested_at;
 
     void sort_fragments()
@@ -427,15 +425,6 @@ struct network_owner_info_recv
 
     packet_id_type last_received = -1;
 
-    void set_from(packet_id_type pid, int tf)
-    {
-        packet_info[pid].from = tf;
-    }
-
-    int get_from(packet_id_type pid)
-    {
-        return packet_info[pid].from;
-    }
 
     void store_serialise_id(packet_id_type pid, serialise_data_type sid)
     {
@@ -508,9 +497,9 @@ struct network_owner_info_recv
         packet_info[pack.header.packet_id].has_full_packet = true;
     }
 
-    std::map<int, packet_id_type> make_full_packets_available_into(std::vector<network_data>& into)
+    std::vector<packet_id_type> make_full_packets_available_into(std::vector<network_data>& into)
     {
-        std::map<int, packet_id_type> acks;
+        std::vector<packet_id_type> acks;
 
         sort_received_packets();
 
@@ -544,7 +533,7 @@ struct network_owner_info_recv
                 network_data out;
                 move_forward_packet_to_network_data(packet, out);
 
-                acks[get_from(out.packet_id)] = out.packet_id;
+                acks.push_back(out.packet_id);
 
                 into.push_back(out);
 
@@ -675,6 +664,10 @@ struct packet_request
     serialise_data_type serialise_id;
 };*/
 
+///Ok. The model of this structure has fundamentally changed now
+///instead of being a global packet rerouting thing, it simple handles
+///one client <-> server stream
+///aka it can have all knowledge of player ids removed
 struct network_reliable_ordered
 {
     bool serv = false;
@@ -684,18 +677,15 @@ struct network_reliable_ordered
     std::map<serialise_owner_type, network_owner_info_send> sending_owner_to_packet_info;
     std::map<serialise_owner_type, network_owner_info_recv> receiving_owner_to_packet_info;
 
-    std::map<int32_t, packet_id_type> player_to_last_ack;
+    //std::map<int32_t, packet_id_type> player_to_last_ack;
+
+    packet_id_type player_last_ack = 0;
 
     int32_t last_ack_from_server = -1;
 
     std::vector<packet_ack> unacked;
 
 public:
-
-    int get_owner_id_from_packet(network_object& no, packet_id_type pid)
-    {
-        return receiving_owner_to_packet_info[no.owner_id].get_from(pid);
-    }
 
     void init_server(){serv = true;}
     void init_client(){serv = false;}
@@ -759,7 +749,9 @@ public:
 
         if(is_server())
         {
-            player_to_last_ack[ack.host_player_id] = ack.packet_id;
+            //player_to_last_ack[ack.host_player_id] = ack.packet_id;
+
+            player_last_ack = ack.packet_id;
         }
     }
 
@@ -854,7 +846,7 @@ public:
         {
             ///hmm. Won't work 100% properly with multiple players
             ///would need per player tracking
-            if(next_packet_id >= player_to_last_ack[player_id] + 500)
+            if(next_packet_id >= player_last_ack + 500)
             {
                 should_slowdown = true;
             }
@@ -886,7 +878,7 @@ public:
     ///suspect logic error here
     ///we're successfully receiving request packets, but for some reason rerequest them after
     ///and dont log data
-    void handle_forwarding_ordered_reliable(byte_fetch& fetch, int from_id)
+    void handle_forwarding_ordered_reliable(byte_fetch& fetch)
     {
         forward_packet packet = decode_forward(fetch);
 
@@ -899,8 +891,6 @@ public:
         int packet_fragments = get_packet_fragments(real_overall_data_length);
 
         network_owner_info_recv& receiving_data = receiving_owner_to_packet_info[no.owner_id];
-
-        receiving_data.set_from(header.packet_id, from_id);
 
         receiving_data.store_serialise_id(header.packet_id, no.serialise_id);
 
@@ -1007,7 +997,7 @@ public:
     {
         for(auto& i : receiving_owner_to_packet_info)
         {
-            std::map<int, packet_id_type> acks = i.second.make_full_packets_available_into(into);
+            /*std::vector<packet_id_type> acks = i.second.make_full_packets_available_into(into);
 
             for(auto& to_ack : acks)
             {
@@ -1018,7 +1008,19 @@ public:
                 //std::cout << "made av into " << ack.packet_id << std::endl;
 
                 unacked.push_back(ack);
-            }
+            }*/
+
+            std::vector<packet_id_type> acks = i.second.make_full_packets_available_into(into);
+
+            if(acks.size() == 0)
+                continue;
+
+            packet_id_type type = acks.back();
+
+            packet_ack ack;
+            ack.packet_id = type;
+
+            unacked.push_back(ack);
         }
     }
 
