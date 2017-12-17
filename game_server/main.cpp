@@ -267,6 +267,9 @@ int main(int argc, char* argv[])
             std::vector<network_data> reliable_data;
             p.reliable_ordered.make_packets_available_into(reliable_data);
 
+            /*if(reliable_data.size() > 0)
+                std::cout << "made av\n";*/
+
             for(network_data& dat : reliable_data)
             {
                 for(player& op : my_state.player_list)
@@ -274,7 +277,7 @@ int main(int argc, char* argv[])
                     if(p.id == op.id)
                         continue;
 
-                    op.reliable_ordered.forward_data_to(my_server, (const sockaddr*)&op.store, dat.object, dat.data, op.id);
+                    op.reliable_ordered.forward_data_to(my_server, (const sockaddr*)&op.store, dat.object, dat.data);
                 }
             }
         }

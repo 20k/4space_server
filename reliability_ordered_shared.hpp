@@ -497,7 +497,7 @@ struct network_owner_info_recv
         packet_info[pack.header.packet_id].has_full_packet = true;
     }
 
-    std::vector<packet_id_type> make_full_packets_available_into(std::vector<network_data>& into)
+    std::vector<packet_id_type> make_full_packets_available_into(std::vector<network_data>& into, bool should_decompress)
     {
         std::vector<packet_id_type> acks;
 
@@ -532,6 +532,11 @@ struct network_owner_info_recv
 
                 network_data out;
                 move_forward_packet_to_network_data(packet, out);
+
+                if(should_decompress)
+                {
+                    out.data.decode_datastream();
+                }
 
                 acks.push_back(out.packet_id);
 
@@ -827,9 +832,14 @@ public:
 
     ///Hmm. This should work for sending to clients as well?
     ///We probably don't want to use broadcasting
-    void forward_data_to(udp_sock& sock, const sockaddr* store, const network_object& no, serialise& s, int player_id)
+    void forward_data_to(udp_sock& sock, const sockaddr* store, const network_object& no, serialise& s)
     {
         int max_to_send = 20;
+
+        if(is_client())
+        {
+            s.encode_datastream();
+        }
 
         int fragments = get_packet_fragments(s.data.size());
 
@@ -930,7 +940,7 @@ public:
             //if((header.sequence_number % 100) == 0)
             if(header.sequence_number > 400 && (header.sequence_number % 1000) == 0)
             {
-                std::cout << header.sequence_number << " ";
+                std::cout << "st " << header.sequence_number << " ";
                 //std::cout << " " << packets.size() << std::endl;
                 std::cout << receiving_data.get_current_packet_fragments_num(header.packet_id) << std::endl;
                 std::cout << packet_fragments << std::endl;
@@ -1010,7 +1020,7 @@ public:
                 unacked.push_back(ack);
             }*/
 
-            std::vector<packet_id_type> acks = i.second.make_full_packets_available_into(into);
+            std::vector<packet_id_type> acks = i.second.make_full_packets_available_into(into, is_client());
 
             if(acks.size() == 0)
                 continue;
