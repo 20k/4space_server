@@ -268,7 +268,14 @@ int main(int argc, char* argv[])
             p.reliable_ordered.make_packets_available_into(reliable_data);
 
             /*if(reliable_data.size() > 0)
-                std::cout << "made av\n";*/
+            {
+                std::cout << "av \n";
+
+                for(network_data& dat : reliable_data)
+                {
+                    std::cout << dat.packet_id << std::endl;
+                }
+            }*/
 
             for(network_data& dat : reliable_data)
             {

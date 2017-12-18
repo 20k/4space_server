@@ -176,7 +176,7 @@ struct packet_ack
 #pragma pack(1)
 struct packet_request_range
 {
-    serialise_owner_type owner_id = 0;
+    //serialise_owner_type owner_id = 0;
     sequence_data_type sequence_id_start = 0;
     sequence_data_type sequence_id_end = 0;
 
@@ -275,6 +275,9 @@ struct network_owner_info_send
 
     std::vector<byte_vector> get_fragments(packet_id_type pid, int start, int fin)
     {
+        if(packet_info.find(pid) == packet_info.end())
+            return std::vector<byte_vector>();
+
         return packet_info[pid].get_fragments(start, fin);
     }
 
@@ -297,6 +300,7 @@ struct network_packet_info_recv
    // std::map<sequence_data_type, network_packet_fragment_info_recv> fragment_info;
 
     serialise_data_type serialise_id = 0;
+    serialise_owner_type owner_id = 0;
     int packet_fragments_num = 1;
 
     std::vector<packet_fragment> fragments;
@@ -331,14 +335,14 @@ struct network_packet_info_recv
 
     #define MAX_REQUEST_RESPONSES 200
 
-    std::vector<packet_request_range> get_requests(serialise_owner_type sid, packet_id_type pid)
+    std::vector<packet_request_range> get_requests(packet_id_type pid)
     {
         std::vector<packet_request_range> ret;
 
         packet_request_range next_to_send;
         next_to_send.sequence_id_start = -1;
 
-        next_to_send.owner_id = sid;
+        //next_to_send.owner_id = sid;
         next_to_send.packet_id = pid;
 
         int max_seq_length = MAX_REQUEST_RESPONSES;
@@ -429,6 +433,19 @@ struct network_owner_info_recv
     void store_serialise_id(packet_id_type pid, serialise_data_type sid)
     {
         packet_info[pid].serialise_id = sid;
+    }
+
+    void store_owner_id(packet_id_type pid, serialise_owner_type oid)
+    {
+        packet_info[pid].owner_id = oid;
+    }
+
+    serialise_owner_type get_owner(packet_id_type pid)
+    {
+        if(packet_info.find(pid) == packet_info.end())
+            return -1;
+
+        return packet_info[pid].owner_id;
     }
 
     void store_expected_packet_fragments_num(packet_id_type pid, int num)
@@ -573,7 +590,7 @@ struct network_owner_info_recv
     ///Ok so the transfer rate problem goes like this:
     ///we're requesting rate limiting for PACKETS not fragments
     ///but we gotta do it fragmentwise otherwise the transfer rate is too poor
-    std::vector<packet_request_range> request_incomplete_packets(serialise_owner_type oid)
+    std::vector<packet_request_range> request_incomplete_packets()
     {
         sort_received_packets();
 
@@ -606,7 +623,7 @@ struct network_owner_info_recv
 
                 if(received_any_fragments(i))
                 {
-                    std::vector<packet_request_range> ranges = packet_info[i].get_requests(oid, i);
+                    std::vector<packet_request_range> ranges = packet_info[i].get_requests(i);
 
                     num += ranges.size();
 
@@ -618,7 +635,7 @@ struct network_owner_info_recv
                 else if(should_request_packet(i))
                 {
                     packet_request_range prr;
-                    prr.owner_id = oid;
+                    //prr.owner_id = oid;
                     prr.packet_id = i;
                     prr.sequence_id_end = 1;
                     prr.sequence_id_start = 0;
@@ -679,8 +696,11 @@ struct network_reliable_ordered
     packet_id_type next_packet_id = 0;
     //packet_id_type last_confirmed_packet_id = 0;
 
-    std::map<serialise_owner_type, network_owner_info_send> sending_owner_to_packet_info;
-    std::map<serialise_owner_type, network_owner_info_recv> receiving_owner_to_packet_info;
+    //std::map<serialise_owner_type, network_owner_info_send> sending_owner_to_packet_info;
+    //std::map<serialise_owner_type, network_owner_info_recv> receiving_owner_to_packet_info;
+
+    network_owner_info_send sending_packet_info;
+    network_owner_info_recv receiving_packet_info;
 
     //std::map<int32_t, packet_id_type> player_to_last_ack;
 
@@ -762,13 +782,15 @@ public:
 
     void request_all_packets(udp_sock& sock, const sockaddr* store)
     {
-        for(auto& i : receiving_owner_to_packet_info)
+        //for(auto& i : receiving_owner_to_packet_info)
         {
-            std::vector<packet_request_range> range = i.second.request_incomplete_packets(i.first);
+            std::vector<packet_request_range> range = receiving_packet_info.request_incomplete_packets();
 
             for(packet_request_range& ran : range)
             {
                 make_packet_request(sock, store, ran);
+
+                //std::cout << "Requesting " << ran.packet_id << std::endl;
             }
         }
     }
@@ -799,7 +821,9 @@ public:
 
         int max_send = MAX_REQUEST_RESPONSES;
 
-        std::vector<byte_vector> dat = sending_owner_to_packet_info[range.owner_id].get_fragments_to_send_rate_limited(range.packet_id, range.sequence_id_start, range.sequence_id_end);
+        //std::vector<byte_vector> dat = sending_owner_to_packet_info[range.owner_id].get_fragments_to_send_rate_limited(range.packet_id, range.sequence_id_start, range.sequence_id_end);
+
+        std::vector<byte_vector> dat = sending_packet_info.get_fragments(range.packet_id, range.sequence_id_start, range.sequence_id_end);
 
         if(dat.size() > max_send)
         {
@@ -824,21 +848,32 @@ public:
             fulfilled = true;
         }
 
-        if(is_server())
+        if(is_client() && fulfilled)
         {
-            //std::cout << "Could fulfill\n";
+            //std::cout << "Could fulfill\n" << range.packet_id << std::endl;
         }
+
+        /*if(is_client() && !fulfilled)
+        {
+            printf("NO FOUND %i %i %i\n", range.packet_id, range.sequence_id_start, range.sequence_id_end);
+            printf("my data: %i\n", (int)sending_packet_info.packet_info[range.packet_id].fragment_info.size());
+        }*/
     }
 
     ///Hmm. This should work for sending to clients as well?
     ///We probably don't want to use broadcasting
-    void forward_data_to(udp_sock& sock, const sockaddr* store, const network_object& no, serialise& s)
+    void forward_data_to(udp_sock& sock, const sockaddr* store, const network_object& no, serialise s)
     {
         int max_to_send = 20;
 
         if(is_client())
         {
             s.encode_datastream();
+        }
+
+        if(s.data.size() == 0)
+        {
+            printf("WHY\n");
         }
 
         int fragments = get_packet_fragments(s.data.size());
@@ -865,12 +900,24 @@ public:
         if(should_slowdown)
             max_to_send = 1;
 
+        if(fragments == 0)
+        {
+            printf("Thread pool fuckup\n\n\n\n");
+        }
+
+        //if(is_client())
+        //    printf("sending %i %i ", next_packet_id, fragments);
+
         for(int i=0; i<fragments; i++)
         {
             byte_vector frag = get_fragment(i, no, s.data, next_packet_id);
 
             ///no.owner_id is.. always me here?
-            sending_owner_to_packet_info[no.owner_id].store_packet_fragment(next_packet_id, i, frag);
+            //sending_owner_to_packet_info[no.owner_id].store_packet_fragment(next_packet_id, i, frag);
+
+            sending_packet_info.store_packet_fragment(next_packet_id, i, frag);
+
+            //std::cout << "ADD PACK " << next_packet_id << " seq " << i << std::endl;
 
             if(i < max_to_send)
             {
@@ -900,9 +947,10 @@ public:
 
         int packet_fragments = get_packet_fragments(real_overall_data_length);
 
-        network_owner_info_recv& receiving_data = receiving_owner_to_packet_info[no.owner_id];
+        network_owner_info_recv& receiving_data = receiving_packet_info;//receiving_owner_to_packet_info[no.owner_id];
 
         receiving_data.store_serialise_id(header.packet_id, no.serialise_id);
+        receiving_data.store_owner_id(header.packet_id, no.owner_id);
 
         if(is_server())
         {
@@ -1005,7 +1053,14 @@ public:
 
     void make_packets_available_into(std::vector<network_data>& into)
     {
-        for(auto& i : receiving_owner_to_packet_info)
+        /*sf::Keyboard key;
+
+        if(key.isKeyPressed(sf::Keyboard::K))
+        {
+            std::cout << receiving_packet_info.last_received << std::endl;
+        }*/
+
+        //for(auto& i : receiving_owner_to_packet_info)
         {
             /*std::vector<packet_id_type> acks = i.second.make_full_packets_available_into(into);
 
@@ -1020,10 +1075,10 @@ public:
                 unacked.push_back(ack);
             }*/
 
-            std::vector<packet_id_type> acks = i.second.make_full_packets_available_into(into, is_client());
+            std::vector<packet_id_type> acks = receiving_packet_info.make_full_packets_available_into(into, is_client());
 
             if(acks.size() == 0)
-                continue;
+                return;
 
             packet_id_type type = acks.back();
 
