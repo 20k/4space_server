@@ -2,6 +2,7 @@
 #define RELIABILITY_ORDERED_SHARED_HPP_INCLUDED
 
 #include "../serialise/serialise.hpp"
+#include "master_server/network_messages.hpp"
 
 inline
 void send_join_game(udp_sock& sock)
