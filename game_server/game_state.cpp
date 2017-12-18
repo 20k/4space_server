@@ -2,83 +2,6 @@
 #include "../master_server/network_messages.hpp"
 #include "../packet_clumping_shared.hpp"
 
-void server_reliability_manager::tick(server_game_state* state)
-{
-    const float broadcast_time_ms = 4;
-
-    static sf::Clock clk;
-
-    if(clk.getElapsedTime().asMilliseconds() < broadcast_time_ms)
-        return;
-
-    clk.restart();
-
-    for(auto& i : player_reliability_handler)
-    {
-        int32_t id = i.first;
-
-        player play = state->get_player_from_player_id(id);
-
-        i.second.tick(play.sock, play.store);
-    }
-}
-
-void server_reliability_manager::add(byte_vector& vec, int32_t to_skip, uint32_t reliable_id)
-{
-    for(auto& i : player_reliability_handler)
-    {
-        if(i.first == to_skip)
-            continue;
-
-        i.second.add(vec, reliable_id);
-    }
-}
-
-void server_reliability_manager::add_player(int32_t id)
-{
-    player_reliability_handler[id];
-}
-
-void server_reliability_manager::remove_player(int32_t id)
-{
-    for(auto it = player_reliability_handler.begin(); it != player_reliability_handler.end();)
-    {
-        if(it->first == id)
-        {
-            it = player_reliability_handler.erase(it);
-        }
-        else
-            ++it;
-    }
-}
-
-void server_reliability_manager::process_ack(byte_fetch& fetch)
-{
-    for(auto& i : player_reliability_handler)
-    {
-        byte_fetch arg = fetch;
-
-        i.second.process_forwarding_reliable_ack(arg);
-    }
-
-    ///id
-    fetch.get<int32_t>();
-    ///canary
-    fetch.get<int32_t>();
-}
-
-void server_reliability_manager::add_packetid_to_ack(uint32_t reliable_id, int32_t player_id)
-{
-    for(auto& i : player_reliability_handler)
-    {
-        if(i.first == player_id)
-        {
-            i.second.register_ack_forwarding_reliable(reliable_id);
-            return;
-        }
-    }
-}
-
 void server_game_state::add_player(udp_sock& sock, sockaddr_storage store)
 {
     int id = gid++;
@@ -132,16 +55,6 @@ int32_t server_game_state::get_team_from_player_id(int32_t id)
     return -1;
 }
 
-player server_game_state::get_player_from_player_id(int32_t id)
-{
-    for(auto& i : player_list)
-    {
-        if(i.id == id)
-            return i;
-    }
-
-    return player();
-}
 
 int32_t server_game_state::get_pos_from_player_id(int32_t id)
 {
@@ -175,26 +88,11 @@ void server_game_state::cull_disconnected_players()
         {
             printf("Player timeout\n");// %s:%s\n", get_peer_ip(player_list[i]].store))
 
-            //reliable.remove_player(player_list[i].id);
-            //mode_handler.shared_game_state.remove_player_entry(player_list[i].id);
-
             player_list.erase(player_list.begin() + i);
             i--;
         }
     }
 }
-
-/*bool operator==(sockaddr_storage& s1, sockaddr_storage& s2)
-{
-    sockaddr_in* si1 = (sockaddr_in*)&s1;
-    sockaddr_in* si2 = (sockaddr_in*)&s2;
-
-    if(si1->sin_port == si2->sin_port &&
-       si1->sin_addr.s_addr == si2->sin_addr.s_addr)
-        return true;
-
-    return false;
-}*/
 
 void server_game_state::reset_player_disconnect_timer(sockaddr_storage& store)
 {
@@ -206,32 +104,6 @@ void server_game_state::reset_player_disconnect_timer(sockaddr_storage& store)
         }
     }
 }
-
-#if 0
-void server_game_state::set_map(int id)
-{
-    map_num = id;
-
-    respawn_positions.clear();
-
-    for(auto& i : map_namespace::team_list)
-    {
-        respawn_positions.push_back(game_map::get_spawn_positions(i, map_num));
-    }
-
-    if(respawn_positions.size() < TEAM_NUMS)
-    {
-        int old_size = respawn_positions.size();
-
-        for(int i=respawn_positions.size(); i<TEAM_NUMS; i++)
-        {
-            int id = i % old_size;
-
-            respawn_positions.push_back(respawn_positions[id]);
-        }
-    }
-}
-#endif
 
 void server_game_state::broadcast(const std::vector<char>& dat, const int& to_skip)
 {
@@ -367,112 +239,7 @@ int32_t server_game_state::sockaddr_to_playerid(sockaddr_storage& who)
 ///do kill confirmer updates here
 void server_game_state::tick()
 {
-    const float player_kill_confirm = 0.8;
 
-    int players_needed_to_confirm_kill = (player_list.size() * player_kill_confirm);
-
-    #if 0
-    for(auto it = kill_confirmer.begin(); it != kill_confirmer.end();)
-    {
-        int32_t who_is_reported_dead = it->first;
-
-        kill_count_timer ktime = it->second;
-
-        ///if the timer elapsed and there's enough reports
-        ///he's dead
-        ///prevents more reports than necessary breaking stuff
-        if(ktime.player_ids_reported_deaths.size() >= players_needed_to_confirm_kill &&
-           ktime.elapsed_time_since_started.getElapsedTime().asMicroseconds() / 1000.f > ktime.max_time)
-        {
-            ///gunna need to do teams later!
-            //mode_handler.current_session_state.kills++;
-
-            int32_t team = get_team_from_player_id(who_is_reported_dead);
-
-            if(team >= TEAM_NUMS)
-            {
-                printf("team error in server\n");
-                continue;
-            }
-
-            int32_t player_who_killed_them = -1;
-
-            for(auto& i : ktime.player_id_of_reported_killer)
-            {
-                if(i.second >= players_needed_to_confirm_kill)
-                {
-                    player_who_killed_them = i.first;
-                }
-            }
-
-            if(player_who_killed_them == -1)
-            {
-                printf("no player id could be reliably found who killed player with id %i\n", who_is_reported_dead);
-            }
-
-            int32_t killer_team = get_team_from_player_id(player_who_killed_them);
-
-            if(killer_team >= TEAM_NUMS)
-            {
-                printf("invalid team for killer\n");
-            }
-
-            /*///good indication that we should have a .player_is_killed
-            if(team > 0)
-                mode_handler.shared_game_state.current_session_state.team_killed[team]++;
-
-            if(killer_team >= 0 && killer_team < TEAM_NUMS)
-                mode_handler.shared_game_state.current_session_state.team_kills[killer_team]++;*/
-
-            mode_handler.shared_game_state.register_kill(player_who_killed_them, who_is_reported_dead, killer_team, team);
-
-            it = kill_confirmer.erase(it);
-
-            //printf("bring out your dead, member of team %i died\n", team);
-            printf("Team %i killed member of team %i\n", killer_team, team);
-            printf("playerid %i killed playerid %i\n", who_is_reported_dead, player_who_killed_them);
-        }
-        else
-        if(ktime.elapsed_time_since_started.getElapsedTime().asMicroseconds() / 1000.f > ktime.max_time)
-        {
-            it = kill_confirmer.erase(it);
-
-            ///well, this cant deal with hacks
-            ///only packet loss
-            ///as hp is authoritative from the client
-            ///so if I hit you, itll definitely register
-            ///unless the packet is gone
-            ///but later we can extend the principle of this mechanism
-            printf("hacks or packet loss\n");
-        }
-        else
-            it++;
-    }
-
-    mode_handler.tick(this);
-
-    for(int i=0; i<respawn_requests.size(); i++)
-    {
-        respawn_request& req = respawn_requests[i];
-
-        if(req.clk.getElapsedTime().asMilliseconds() > req.time_to_respawn_ms && !req.respawned)
-        {
-            respawn_player(req.player_id);
-
-            printf("respawning a player with id %i\n", req.player_id);
-
-            req.respawned = true;
-        }
-
-        if(req.clk.getElapsedTime().asMilliseconds() > req.time_to_remove_ms)
-        {
-            printf("Player with id %i can respawn again\n", req.player_id);
-
-            respawn_requests.erase(respawn_requests.begin() + i);
-            i--;
-        }
-    }
-    #endif
 }
 
 void server_game_state::process_received_message(byte_fetch& arg, sockaddr_storage& who)

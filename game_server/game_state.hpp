@@ -8,11 +8,7 @@
 #include <map>
 #include <optional>
 
-#include "game_modes.hpp"
-
-#include "../reliability_shared.hpp"
 #include "../packet_clumping_shared.hpp"
-#include "../game_mode_shared.hpp"
 #include "../master_server/network_messages.hpp"
 #include "../reliability_ordered_shared.hpp"
 
@@ -49,47 +45,6 @@ struct kill_count_timer
     std::map<int32_t, int> player_id_of_reported_killer; ///the id of who is reported to have killed the player
     sf::Clock elapsed_time_since_started;
     const float max_time = 1000.f; ///1s window
-};
-
-struct server_game_state;
-
-///unify with gamemode_info in game_server_session_resources
-///shared gamemode resources
-///This is server gamemode wrapper
-///rename?
-struct game_mode_handler
-{
-    game_mode_handler_shared shared_game_state;
-
-    void tick(server_game_state* state);
-
-    bool game_over();
-};
-
-struct respawn_request
-{
-    int32_t player_id = 0;
-    sf::Clock clk;
-    float time_to_respawn_ms = 5000;
-    float time_to_remove_ms = 10000; ///the client spams the server. Wait this much more time before they can spawn again
-    bool respawned = false;
-};
-
-struct server_game_state;
-
-struct server_reliability_manager
-{
-    std::map<int32_t, reliability_manager> player_reliability_handler;
-
-    void tick(server_game_state* state);
-
-    void add(byte_vector& vec, int32_t to_skip, uint32_t reliable_id);
-    void add_packetid_to_ack(uint32_t id, int32_t to_whom);
-
-    void add_player(int32_t id);
-    void remove_player(int32_t id);
-
-    void process_ack(byte_fetch& fetch);
 };
 
 ///so, we want to pipe everyone's ping to everyone else
@@ -135,7 +90,6 @@ struct server_game_state
     int number_of_team(int team_id);
 
     int32_t get_team_from_player_id(int32_t id);
-    player get_player_from_player_id(int32_t id);
     int32_t get_pos_from_player_id(int32_t id);
     std::optional<player*> get_player_ptr_from_sock(sockaddr_storage& store);
 
