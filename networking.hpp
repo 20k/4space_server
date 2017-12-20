@@ -90,6 +90,8 @@ struct update_strategy
         no.serialise_id = t->serialise_id;
 
         net_state.forward_data(no, ser);
+
+        t->force_send = false;
     }
 
     template<typename T>

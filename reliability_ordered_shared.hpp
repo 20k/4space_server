@@ -76,8 +76,6 @@ byte_vector get_fragment(int id, const network_object& no, const std::vector<cha
 {
     int fragments = get_packet_fragments(data.size());
 
-    sequence_data_type sequence_number = 0;
-
     packet_header header;
     header.current_size = data.size() + header.calculate_size() + sizeof(no);
     header.overall_size = header.current_size;
