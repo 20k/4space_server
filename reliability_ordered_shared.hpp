@@ -867,6 +867,9 @@ public:
     {
         int max_to_send = 20;
 
+        if(s.data.size() == 0)
+            return;
+
         if(is_client())
         {
             s.encode_datastream();
