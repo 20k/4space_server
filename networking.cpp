@@ -3,6 +3,8 @@
 #define GAMESERVER_IP "77.96.132.101"
 //#define GAMESERVER_IP "192.168.0.54"
 
+//#define GAMESERVER_IP "127.0.0.1"
+
 void network_state::tick_join_game(float dt_s)
 {
     if(my_id != -1)
