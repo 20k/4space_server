@@ -82,7 +82,19 @@ struct update_strategy
 
         ser.handle_serialise(serialise_data_helper::send_mode, true);
         ser.handle_serialise(host_id, true);
-        ser.force_serialise(t, true);
+        //ser.force_serialise(t, true);
+
+        serialise ser_temp;
+        ser_temp.default_owner = net_state.my_id;
+        ser_temp.force_serialise(t, true);
+
+        if(ser_temp.data.size() == 0)
+        {
+            t->force_send = false;
+            return;
+        }
+
+        ser.data.insert(ser.data.end(), ser_temp.data.begin(), ser_temp.data.end());
 
         network_object no;
 
