@@ -824,7 +824,7 @@ public:
 
         std::vector<byte_vector> dat = sending_packet_info.get_fragments(range.packet_id, range.sequence_id_start, range.sequence_id_end);
 
-        if(dat.size() > max_send)
+        if((int)dat.size() > max_send)
         {
             dat.resize(max_send);
         }
