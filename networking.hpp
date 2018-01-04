@@ -80,6 +80,11 @@ struct update_strategy
             host_id = t->host_id;
         }
 
+        if(host_id == -3)
+        {
+            printf("HOST ID\n");
+        }
+
         ser.handle_serialise(serialise_data_helper::send_mode, true);
         ser.handle_serialise(host_id, true);
         //ser.force_serialise(t, true);
@@ -98,7 +103,7 @@ struct update_strategy
 
         network_object no;
 
-        no.owner_id = net_state.my_id;
+        //no.owner_id = net_state.my_id;
         no.serialise_id = t->serialise_id;
 
         net_state.forward_data(no, ser);

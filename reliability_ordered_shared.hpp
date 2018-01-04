@@ -44,7 +44,7 @@ int get_packet_fragments(int data_size)
 struct network_object
 {
     ///who's sending the data
-    serialise_owner_type owner_id = -1;
+    //serialise_owner_type owner_id = -1;
     serialise_data_type serialise_id = -1;
 };
 
@@ -299,7 +299,7 @@ struct network_packet_info_recv
    // std::map<sequence_data_type, network_packet_fragment_info_recv> fragment_info;
 
     serialise_data_type serialise_id = 0;
-    serialise_owner_type owner_id = 0;
+    //serialise_owner_type owner_id = 0;
     int packet_fragments_num = 1;
 
     std::vector<packet_fragment> fragments;
@@ -434,18 +434,18 @@ struct network_owner_info_recv
         packet_info[pid].serialise_id = sid;
     }
 
-    void store_owner_id(packet_id_type pid, serialise_owner_type oid)
+    /*void store_owner_id(packet_id_type pid, serialise_owner_type oid)
     {
         packet_info[pid].owner_id = oid;
-    }
+    }*/
 
-    serialise_owner_type get_owner(packet_id_type pid)
+    /*serialise_owner_type get_owner(packet_id_type pid)
     {
         if(packet_info.find(pid) == packet_info.end())
             return -1;
 
         return packet_info[pid].owner_id;
-    }
+    }*/
 
     void store_expected_packet_fragments_num(packet_id_type pid, int num)
     {
@@ -952,7 +952,7 @@ public:
         network_owner_info_recv& receiving_data = receiving_packet_info;//receiving_owner_to_packet_info[no.owner_id];
 
         receiving_data.store_serialise_id(header.packet_id, no.serialise_id);
-        receiving_data.store_owner_id(header.packet_id, no.owner_id);
+        //receiving_data.store_owner_id(header.packet_id, no.owner_id);
 
         if(is_server())
         {
