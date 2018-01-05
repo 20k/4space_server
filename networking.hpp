@@ -80,11 +80,6 @@ struct update_strategy
             host_id = t->host_id;
         }
 
-        if(host_id == -3)
-        {
-            printf("HOST ID\n");
-        }
-
         ser.handle_serialise(serialise_data_helper::send_mode, true);
         ser.handle_serialise(host_id, true);
         //ser.force_serialise(t, true);
