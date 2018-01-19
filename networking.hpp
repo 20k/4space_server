@@ -146,7 +146,10 @@ struct update_strategy
             return;
         }
 
-        float frac = time_elapsed_s / time_between_full_updates;
+        float frac = 1.f;
+
+        if(time_between_full_updates > 0)
+            frac = time_elapsed_s / time_between_full_updates;
 
         frac = clamp(frac, 0.f, 1.f);
 
