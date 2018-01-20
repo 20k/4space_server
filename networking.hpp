@@ -18,8 +18,22 @@
 ///(ie on ship hit update its stats to ensure it doesn't take 1 second for it to update)
 ///very infrequently networking stuff the clients aren't looking at
 
+struct keepalive_info : serialisable
+{
+    int state = 0;
+    bool cleanup = false;
+
+    virtual void do_serialise(serialise& s, bool ser) override
+    {
+        s.handle_serialise(state, ser);
+    }
+};
+
 struct network_state
 {
+    keepalive_info keepalive;
+    bool use_keepalive = false;
+
     int my_id = -1;
     udp_sock sock;
     sockaddr_storage store;
@@ -52,6 +66,8 @@ public:
     void forward_data(const network_object& no, serialise& s);
 
     void tick(double dt_s);
+
+    void register_keepalive();
 };
 
 struct update_strategy

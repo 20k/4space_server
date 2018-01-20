@@ -197,4 +197,19 @@ void network_state::tick(double dt_s)
 
     reliable_ordered.request_all_packets(sock, (const sockaddr*)&store);
     reliable_ordered.process_acks(sock, (const sockaddr*)&store);
+
+
+    if(use_keepalive)
+    {
+        std::vector<keepalive_info*> keepalive_hack{&keepalive};
+
+        static update_strategy keepalive_update;
+        keepalive_update.do_update_strategy(dt_s, 1.f, keepalive_hack, *this, 0);
+    }
+}
+
+void network_state::register_keepalive()
+{
+    keepalive.explicit_register();
+    use_keepalive = true;
 }
