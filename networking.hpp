@@ -29,6 +29,12 @@ struct keepalive_info : serialisable
     }
 };
 
+struct game_server_info
+{
+    std::string ip;
+    std::string port;
+};
+
 struct network_state
 {
     keepalive_info keepalive;
@@ -40,12 +46,19 @@ struct network_state
     bool have_sock = false;
     bool try_join = false;
 
+    udp_sock to_master_sock;
+
     float timeout = 5;
     float timeout_max = 5;
 
     network_reliable_ordered reliable_ordered;
 
+    std::vector<game_server_info> game_servers;
+
     void tick_join_game(float dt_s);
+
+    void handle_master_response();
+
 
 public:
     //unused
@@ -68,6 +81,11 @@ public:
     void tick(double dt_s);
 
     void register_keepalive();
+
+    void open_socket_to_master_server(const std::string& master_ip, const std::string& master_port);
+
+    void ping_master_for_gameservers();
+    void tick_ping_master_for_gameservers();
 };
 
 struct update_strategy

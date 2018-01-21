@@ -89,11 +89,123 @@ void network_state::forward_data(const network_object& no, serialise& s)
     reliable_ordered.forward_data_to(sock, (const sockaddr*)&store, no, s);
 }
 
+///TODO: Convert over to using new serialisation scheme, share data structure with master server
+void network_state::handle_master_response()
+{
+    if(!to_master_sock.valid())
+        return;
+
+    sockaddr_storage tstore;
+
+    bool any_read = true;
+
+    while(any_read && sock_readable(to_master_sock))
+    {
+        auto data = udp_receive_from(to_master_sock, &tstore);
+
+        any_read = data.size() > 0;
+
+        byte_fetch fetch;
+        fetch.ptr.swap(data);
+
+        while(!fetch.finished() && any_read)
+        {
+            int32_t found_canary = fetch.get<int32_t>();
+
+            while(found_canary != canary_start && !fetch.finished())
+            {
+                found_canary = fetch.get<int32_t>();
+            }
+
+            if(fetch.finished())
+                break;
+
+
+            //while(!sock_writable(my_server)){}
+
+            int32_t type = fetch.get<int32_t>();
+
+            if(type == message::CLIENTRESPONSE)
+            {
+                ///reset game servers
+                game_servers = decltype(game_servers)();
+
+                int32_t server_nums = fetch.get<int32_t>();
+
+                printf("snum %i\n", server_nums);
+
+                for(int i=0; i < server_nums && i < 255; i++)
+                {
+                    int32_t string_length = fetch.get<int32_t>();
+
+                    std::vector<char> chars = fetch.get_buf(string_length);
+
+                    uint32_t port = fetch.get<uint32_t>();
+
+                    game_server_info inf;
+                    inf.ip = std::string(chars.begin(), chars.end());
+                    inf.port = std::to_string(port);
+
+                    game_servers.push_back(inf);
+                }
+
+                printf("got servers\n");
+
+                auto canary = fetch.get<decltype(canary_end)>();
+            }
+        }
+    }
+}
+
+struct master_request_gameservers_info : serialisable
+{
+    decltype(canary_start) can_start = canary_start;
+    message::message type = message::CLIENT;
+    decltype(canary_end) can_end = canary_end;
+
+    void do_serialise(serialise& s, bool ser)
+    {
+        s.handle_serialise(can_start, ser);
+        s.handle_serialise(type, ser);
+        s.handle_serialise(can_end, ser);
+    }
+};
+
+void network_state::ping_master_for_gameservers()
+{
+    if(!to_master_sock.valid())
+        return;
+
+    master_request_gameservers_info info;
+
+    serialise s;
+    s.handle_serialise(info, true);
+
+    udp_send(to_master_sock, s.data);
+}
+
+void network_state::tick_ping_master_for_gameservers()
+{
+    static sf::Clock elapsed;
+    static bool once = false;
+
+    if(!once || elapsed.getElapsedTime().asSeconds() > 5)
+    {
+        elapsed.restart();
+
+        ping_master_for_gameservers();
+    }
+
+    once = true;
+}
+
 ///server should only deal in compressed packets
 ///compress when we forward in the above function, decompress when we receive after make packets available into
 void network_state::tick(double dt_s)
 {
     tick_join_game(dt_s);
+
+    handle_master_response();
 
     if(!sock.valid())
         return;
@@ -123,7 +235,7 @@ void network_state::tick(double dt_s)
             }
 
             if(fetch.finished())
-                continue;
+                break;
 
 
             //while(!sock_writable(my_server)){}
@@ -212,4 +324,9 @@ void network_state::register_keepalive()
 {
     keepalive.explicit_register();
     use_keepalive = true;
+}
+
+void network_state::open_socket_to_master_server(const std::string& master_ip, const std::string& master_port)
+{
+    to_master_sock = udp_connect(master_ip, master_port);
 }
