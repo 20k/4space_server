@@ -59,6 +59,8 @@ struct network_state
 
     void handle_master_response();
 
+    std::string try_join_ip;
+    std::string try_join_port;
 
 public:
     //unused
@@ -86,6 +88,9 @@ public:
 
     void ping_master_for_gameservers();
     void tick_ping_master_for_gameservers();
+    std::vector<std::string> get_gameserver_strings();
+    void try_join_server(int offset);
+    bool connected_to(int offset);
 };
 
 struct update_strategy

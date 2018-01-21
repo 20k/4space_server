@@ -15,8 +15,15 @@ void network_state::tick_join_game(float dt_s)
 
     if(!sock.valid())
     {
-        //sock = udp_connect("77.96.132.101", GAMESERVER_PORT);
-        sock = udp_connect(GAMESERVER_IP, GAMESERVER_PORT);
+        if(try_join_ip == "" || try_join_port == "")
+        {
+            sock = udp_connect(GAMESERVER_IP, GAMESERVER_PORT);
+        }
+        else
+        {
+            sock = udp_connect(try_join_ip, try_join_port);
+        }
+
         //sock_set_non_blocking(sock, 1);
     }
 
@@ -132,8 +139,6 @@ void network_state::handle_master_response()
 
                 int32_t server_nums = fetch.get<int32_t>();
 
-                printf("snum %i\n", server_nums);
-
                 for(int i=0; i < server_nums && i < 255; i++)
                 {
                     int32_t string_length = fetch.get<int32_t>();
@@ -148,8 +153,6 @@ void network_state::handle_master_response()
 
                     game_servers.push_back(inf);
                 }
-
-                printf("got servers\n");
 
                 auto canary = fetch.get<decltype(canary_end)>();
             }
@@ -329,4 +332,53 @@ void network_state::register_keepalive()
 void network_state::open_socket_to_master_server(const std::string& master_ip, const std::string& master_port)
 {
     to_master_sock = udp_connect(master_ip, master_port);
+}
+
+std::vector<std::string> network_state::get_gameserver_strings()
+{
+    std::vector<std::string> ret;
+
+    for(game_server_info& inf : game_servers)
+    {
+        std::string name;
+
+        name = inf.ip + ":" + inf.port;
+
+        ret.push_back(name);
+    }
+
+    return ret;
+}
+
+void network_state::try_join_server(int offset)
+{
+    if(offset < 0 || offset >= game_servers.size())
+        return;
+
+    game_server_info& info = game_servers[offset];
+
+    if(connected())
+    {
+        leave_game();
+    }
+
+    try_join = true;
+    try_join_ip = info.ip;
+    try_join_port = info.port;
+}
+
+bool network_state::connected_to(int offset)
+{
+    if(offset < 0 || offset >= game_servers.size())
+        return false;
+
+    if(!sock.valid())
+        return false;
+
+    game_server_info& info = game_servers[offset];
+
+    std::string addr = sock.get_peer_ip();
+    std::string port = sock.get_peer_port();
+
+    return addr == info.ip && port == info.port;
 }

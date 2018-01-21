@@ -7,7 +7,7 @@
 #include "game_state.hpp"
 #include "../reliability_ordered_shared.hpp"
 
-void ping_master(server_game_state& my_state, int32_t port, udp_sock& to_master)
+void ping_master(server_game_state& my_state, udp_sock& to_master, udp_sock& my_host)
 {
     static sf::Clock clk;
     static bool init = false;
@@ -29,6 +29,8 @@ void ping_master(server_game_state& my_state, int32_t port, udp_sock& to_master)
 
         printf("Creating socket to master server\n");
     }
+
+    int32_t port = atoi(my_host.get_host_port().c_str());
 
     byte_vector vec;
 
@@ -66,6 +68,23 @@ int main(int argc, char* argv[])
     uint32_t pnum = atoi(host_port.c_str());
 
     udp_sock my_server = udp_host(host_port);
+
+    if(!my_server.valid())
+    {
+        for(int i=0; i < 10 && !my_server.valid(); i++)
+        {
+            uint32_t port = atoi(host_port.c_str());
+            port = port + i;
+
+            my_server = udp_host(std::to_string(port));
+
+            if(my_server.valid())
+            {
+                host_port = port;
+            }
+        }
+    }
+
     //sock_set_non_blocking(my_server, 1);
 
     printf("Registered on port %s\n", my_server.get_host_port().c_str());
@@ -80,7 +99,7 @@ int main(int argc, char* argv[])
 
     while(going)
     {
-        ping_master(my_state, pnum, to_master);
+        ping_master(my_state, to_master, my_server);
 
         /*if(sock_readable(to_server))
         {
