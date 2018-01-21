@@ -16,7 +16,7 @@
 				</Compiler>
 			</Target>
 			<Target title="Release">
-				<Option output="bin/Release/master_server" prefix_auto="1" extension_auto="1" />
+				<Option output="bin/Release/master_server2" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Release/" />
 				<Option type="1" />
 				<Option compiler="mingw64new" />
@@ -54,7 +54,6 @@
 		</Linker>
 		<Unit filename="main.cpp" />
 		<Unit filename="network_messages.hpp" />
-		<Unit filename="server.cpp" />
 		<Unit filename="server.hpp" />
 		<Extensions>
 			<code_completion />

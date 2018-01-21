@@ -69,7 +69,7 @@ void receive_pings(std::vector<udp_game_server>& servers)
     static udp_sock host;
     static bool init = false;
 
-    if(!init)
+    if(!host.valid())
     {
         host = udp_host(MASTER_PORT);
         init = true;
@@ -95,7 +95,7 @@ void receive_pings(std::vector<udp_game_server>& servers)
         new_server = true;
     }
 
-    if(data.size() <= 0)
+    if(data.size() == 0)
         return;
 
     byte_fetch fetch;
@@ -189,6 +189,9 @@ int main()
         receive_pings(udp_serverlist);
         process_timeouts(udp_serverlist);
 
+        if(!client_host_sock.valid())
+            client_host_sock = udp_host(MASTER_CLIENT_PORT);
+
         bool any_read = true;
 
         while(any_read && sock_readable(client_host_sock))
@@ -201,6 +204,8 @@ int main()
 
             byte_fetch fetch;
             fetch.ptr.swap(data);
+
+            printf("data\n");
 
             while(!fetch.finished())
             {
@@ -255,8 +260,7 @@ int main()
             }
         }
 
-
-        sf::sleep(sf::milliseconds(1));
+        sf::sleep(sf::milliseconds(4));
     }
 
     closesocket(client_host_sock.get());
