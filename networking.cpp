@@ -39,11 +39,15 @@ void network_state::tick_join_game(float dt_s)
 
 void network_state::leave_game()
 {
-    sock.close();
+    if(sock.valid())
+        sock.close();
+
+    sock.make_invalid();
 
     my_id = -1;
 
     try_join = false;
+    timeout = timeout_max;
 }
 
 serialisable* network_state::get_serialisable(serialise_host_type& host_id, serialise_data_type& serialise_id)
@@ -357,10 +361,7 @@ void network_state::try_join_server(int offset)
 
     game_server_info& info = game_servers[offset];
 
-    if(connected())
-    {
-        leave_game();
-    }
+    leave_game();
 
     try_join = true;
     try_join_ip = info.ip;
@@ -373,6 +374,9 @@ bool network_state::connected_to(int offset)
         return false;
 
     if(!sock.valid())
+        return false;
+
+    if(my_id == -1)
         return false;
 
     game_server_info& info = game_servers[offset];
