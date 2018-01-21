@@ -7,8 +7,6 @@
 #include "game_state.hpp"
 #include "../reliability_ordered_shared.hpp"
 
-#include <cl/cl.h>
-
 void ping_master(server_game_state& my_state, int32_t port, udp_sock& to_master)
 {
     static sf::Clock clk;
@@ -24,7 +22,7 @@ void ping_master(server_game_state& my_state, int32_t port, udp_sock& to_master)
         if(to_master.udp_connected)
         {
             to_master.close();
-            printf("Local sock error (this is not caused by master server termination), reopening socket");
+            printf("Local sock error (this is not caused by master server termination), reopening socket\n");
         }
 
         to_master = udp_connect(MASTER_IP, MASTER_PORT);
