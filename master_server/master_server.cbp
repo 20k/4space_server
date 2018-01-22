@@ -31,8 +31,9 @@
 		<Compiler>
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
-			<Add option="-std=gnu++14" />
+			<Add option="-std=gnu++17" />
 			<Add option="-Wno-sign-compare" />
+			<Add option="-DNET_SERVER" />
 		</Compiler>
 		<Linker>
 			<Add option="-lmingw32" />
@@ -52,6 +53,8 @@
 			<Add option="-lopenal32" />
 			<Add option="-logg" />
 		</Linker>
+		<Unit filename="../../serialise/serialise.cpp" />
+		<Unit filename="../../serialise/serialise.hpp" />
 		<Unit filename="main.cpp" />
 		<Unit filename="network_messages.hpp" />
 		<Unit filename="server.hpp" />

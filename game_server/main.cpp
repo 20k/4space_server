@@ -6,6 +6,7 @@
 #include <vec/vec.hpp>
 #include "game_state.hpp"
 #include "../reliability_ordered_shared.hpp"
+#include "punchthrough_manager.hpp"
 
 void ping_master(server_game_state& my_state, udp_sock& to_master, udp_sock& my_host)
 {
@@ -95,6 +96,8 @@ int main(int argc, char* argv[])
 
     bool once = false;
 
+    punchthrough_manager punchthrough_manage;
+
     bool going = true;
 
     while(going)
@@ -135,6 +138,62 @@ int main(int argc, char* argv[])
             //continue;
         }*/
 
+
+        #ifdef FAILED_PUNCHTHROUGH
+        bool any_read = true;
+
+        while(any_read && sock_readable(to_master))
+        {
+            sockaddr_storage store;
+
+            auto data = udp_receive_from(to_master, &store);
+
+            any_read = data.size() > 0;
+
+            byte_fetch fetch;
+            fetch.ptr.swap(data);
+
+            while(!fetch.finished() && any_read)
+            {
+                int32_t found_canary = fetch.get<int32_t>();
+
+                while(found_canary != canary_start && !fetch.finished())
+                {
+                    found_canary = fetch.get<int32_t>();
+                }
+
+                if(fetch.finished())
+                    continue;
+
+                int32_t type = fetch.get<int32_t>();
+
+                if(type == message::PUNCHTHROUGH_TO_GAMESERVER)
+                {
+                    int internal = fetch.internal_counter - sizeof(type) - sizeof(found_canary);
+
+                    if(internal < 0)
+                    {
+                        printf("ierror %i\n", internal);
+                        continue;
+                    }
+
+                    std::cout << "got punchthrough\n";
+
+                    serialise s;
+                    s.internal_counter = internal;
+                    s.data = fetch.ptr;
+
+                    punchthrough punch;
+                    punch.construct_from_serialise(s);
+
+                    punchthrough_manage.to_punch.push_back(punch);
+
+                    fetch.internal_counter = s.internal_counter;
+                }
+            }
+        }
+        #endif
+
         bool any_read = true;
 
         while(any_read && sock_readable(my_server))
@@ -169,6 +228,8 @@ int main(int argc, char* argv[])
 
                 if(type == message::CLIENTJOINREQUEST)
                 {
+                    std::cout << "joinreq " << get_addr_ip(store) << " " << get_addr_port(store) << std::endl;
+
                     my_state.process_join_request(my_server, fetch, store);
                 }
 
@@ -347,5 +408,9 @@ int main(int argc, char* argv[])
         my_state.broadcast_ping_data();
 
         my_state.packet_clump.tick();
+
+        #ifdef FAILED_PUNCHTHROUGH
+        punchthrough_manage.tick(my_server);
+        #endif
     }
 }

@@ -1,6 +1,8 @@
 #ifndef NETWORK_MESSAGES_HPP_INCLUDED
 #define NETWORK_MESSAGES_HPP_INCLUDED
 
+#include "../../serialise/serialise.hpp"
+
 #define GAMESERVER_PORT "6950"
 #define MASTER_PORT     "6850" ///for server functions
 #define MASTER_CLIENT_PORT "6851" ///for client functions
@@ -55,6 +57,9 @@ namespace message
         REQUEST,
         PAUSE_DATA,
         PACKET_ACK,
+        PUNCHTHROUGH_FROM_CLIENT,
+        PUNCHTHROUGH_TO_GAMESERVER,
+        PUNCHTHROUGH_PACKET,
     };
 }
 
@@ -81,6 +86,61 @@ namespace report
         COUNT
     };
 }
+
+struct punchthrough_to_server_data : serialisable
+{
+    decltype(canary_start) can_start = canary_start;
+    message::message type = message::PUNCHTHROUGH_TO_GAMESERVER;
+    std::string client_ip;
+    std::string client_port;
+    decltype(canary_end) can_end = canary_end;
+
+    virtual void do_serialise(serialise& s, bool ser) override
+    {
+        s.handle_serialise(can_start, ser);
+        s.handle_serialise(type, ser);
+        s.handle_serialise(client_ip, ser);
+        s.handle_serialise(client_port, ser);
+        s.handle_serialise(can_end, ser);
+    }
+};
+
+struct punchthrough_from_client_data : serialisable
+{
+    decltype(canary_start) can_start = canary_start;
+    message::message type = message::PUNCHTHROUGH_FROM_CLIENT;
+
+    std::string gserver_ip;
+    std::string gserver_port;
+
+    std::string my_port;
+
+    decltype(canary_end) can_end = canary_end;
+
+    virtual void do_serialise(serialise& s, bool ser) override
+    {
+        s.handle_serialise(can_start, ser);
+        s.handle_serialise(type, ser);
+        s.handle_serialise(gserver_ip, ser);
+        s.handle_serialise(gserver_port, ser);
+        s.handle_serialise(my_port, ser);
+        s.handle_serialise(can_end, ser);
+    }
+};
+
+struct punchthrough_packet : serialisable
+{
+    decltype(canary_start) can_start = canary_start;
+    message::message type = message::PUNCHTHROUGH_PACKET;
+    decltype(canary_end) can_end = canary_end;
+
+    virtual void do_serialise(serialise& s, bool ser) override
+    {
+        s.handle_serialise(can_start, ser);
+        s.handle_serialise(type, ser);
+        s.handle_serialise(can_end, ser);
+    }
+};
 
 typedef report::report report_t;
 

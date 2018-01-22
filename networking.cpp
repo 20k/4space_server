@@ -13,16 +13,20 @@ void network_state::tick_join_game(float dt_s)
     if(!try_join)
         return;
 
+    std::string to_ip = GAMESERVER_IP;
+    std::string to_port = GAMESERVER_PORT;
+
+    if(try_join_ip.size() > 0 && to_port.size() > 0)
+    {
+        to_ip = try_join_ip;
+        to_port = try_join_port;
+    }
+
     if(!sock.valid())
     {
-        if(try_join_ip == "" || try_join_port == "")
-        {
-            sock = udp_connect(GAMESERVER_IP, GAMESERVER_PORT);
-        }
-        else
-        {
-            sock = udp_connect(try_join_ip, try_join_port);
-        }
+        sock = udp_connect(to_ip, to_port);
+
+        std::cout << "Made sock on " << sock.get_host_ip() << " " << sock.get_host_port() << std::endl;
 
         //sock_set_non_blocking(sock, 1);
     }
@@ -32,6 +36,23 @@ void network_state::tick_join_game(float dt_s)
     if(timeout > timeout_max)
     {
         send_join_game(sock);
+
+        #ifdef FAILED_PUNCHTHROUGH
+        //std::cout << "sending join 2 " << sock.get_peer_ip() << " " << sock.get_peer_port() << std::endl;
+
+        if(to_master_sock.valid())
+        {
+            punchthrough_from_client_data master;
+            master.gserver_ip = to_ip;
+            master.gserver_port = to_port;
+            master.my_port = sock.get_host_port();
+
+            serialise s;
+            s.handle_serialise(master, true);
+
+            udp_send(to_master_sock, s.data);
+        }
+        #endif
 
         timeout = 0;
     }
@@ -244,7 +265,6 @@ void network_state::tick(double dt_s)
             if(fetch.finished())
                 break;
 
-
             //while(!sock_writable(my_server)){}
 
             int32_t type = fetch.get<int32_t>();
@@ -263,6 +283,8 @@ void network_state::tick(double dt_s)
                 }
 
                 std::cout << recv_id << std::endl;
+
+                printf("GOT ID\n");
             }
 
             if(type == message::PING_DATA)
@@ -310,6 +332,13 @@ void network_state::tick(double dt_s)
                 //std::cout << "got ack\n";
 
                 reliable_ordered.handle_ack(fetch);
+            }
+
+            if(type == message::PUNCHTHROUGH_PACKET)
+            {
+                printf("Punch\n");
+
+                fetch.get<decltype(canary_end)>();
             }
         }
     }

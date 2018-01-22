@@ -9,6 +9,7 @@
 #include <iostream>
 #include <iomanip>
 #include <ctime>
+#include "../../serialise/serialise.hpp"
 
 using namespace std;
 
@@ -30,6 +31,7 @@ struct udp_game_server
 {
     sockaddr_storage store;
     sf::Clock timeout_time;
+    std::string their_port_to_master;
 
     udp_serv_info info;
 
@@ -45,6 +47,20 @@ bool contains(std::vector<udp_game_server>& servers, sockaddr_storage& store)
     }
 
     return false;
+}
+
+void send_to_server(udp_sock& sock, std::vector<udp_game_server>& servers, const std::string& ip, const std::string& port, const std::vector<char>& data)
+{
+    for(udp_game_server& serv : servers)
+    {
+        if(get_addr_ip(serv.store) == ip && std::to_string(serv.info.port_num) == port)
+        {
+            printf("print\n");
+
+            udp_send_to(sock, data, (const sockaddr*)&serv.store);
+            return;
+        }
+    }
 }
 
 udp_serv_info process_ping(byte_fetch& fetch)
@@ -64,15 +80,11 @@ udp_serv_info process_ping(byte_fetch& fetch)
 }
 
 ///wouldn't this be great... as some kind of OBJECT PERHAPS?????!!!?!?
-void receive_pings(std::vector<udp_game_server>& servers)
+void receive_pings(udp_sock& host, std::vector<udp_game_server>& servers)
 {
-    static udp_sock host;
-    static bool init = false;
-
     if(!host.valid())
     {
         host = udp_host(MASTER_PORT);
-        init = true;
 
         printf("Registerd udp on port %s\n", host.get_host_port().c_str());
     }
@@ -90,7 +102,7 @@ void receive_pings(std::vector<udp_game_server>& servers)
     {
         printf("New server: IP %s Port %s\n", get_addr_ip(store).c_str(), get_addr_port(store).c_str());
 
-        servers.push_back({store, sf::Clock()});
+        servers.push_back({store, sf::Clock(), get_addr_port(store)});
 
         new_server = true;
     }
@@ -117,6 +129,7 @@ void receive_pings(std::vector<udp_game_server>& servers)
             servers[i].timeout_time.restart();
 
             servers[i].info = info;
+            servers[i].their_port_to_master = get_addr_port(store);
         }
     }
 }
@@ -179,6 +192,8 @@ int main()
 
     udp_sock client_host_sock = udp_host(MASTER_CLIENT_PORT);
 
+    udp_sock host = udp_host(MASTER_PORT);
+
     //master_server master;
 
     std::vector<udp_game_server> udp_serverlist;
@@ -186,7 +201,7 @@ int main()
     ///I think we have to keepalive the connections
     while(1)
     {
-        receive_pings(udp_serverlist);
+        receive_pings(host, udp_serverlist);
         process_timeouts(udp_serverlist);
 
         if(!client_host_sock.valid())
@@ -204,8 +219,6 @@ int main()
 
             byte_fetch fetch;
             fetch.ptr.swap(data);
-
-            printf("data\n");
 
             while(!fetch.finished())
             {
@@ -243,8 +256,8 @@ int main()
                     auto t = std::time(nullptr);
                     auto tm = *std::localtime(&t);
 
-                    printf("client ping\n");
-                    std::cout << std::put_time(&tm, "%d-%m-%Y %H-%M-%S") << std::endl;
+                    //printf("client ping\n");
+                    //std::cout << std::put_time(&tm, "%d-%m-%Y %H-%M-%S") << std::endl;
 
                     int32_t found_end = fetch.get<int32_t>();
 
@@ -257,6 +270,46 @@ int main()
 
                     udp_send_to(client_host_sock, get_udp_client_response(udp_serverlist), (sockaddr*)&to_client);
                 }
+
+                #ifdef FAILED_PUNCHTHROUGH
+                if(type == message::PUNCHTHROUGH_FROM_CLIENT)
+                {
+                    int internal = fetch.internal_counter - sizeof(type) - sizeof(found_canary);
+
+                    if(internal < 0)
+                    {
+                        printf("ierror %i\n", internal);
+                        continue;
+                    }
+
+                    serialise s;
+                    s.internal_counter = internal;
+                    s.data = fetch.ptr;
+
+                    punchthrough_from_client_data data;
+                    s.handle_serialise(data, false);
+
+                    std::string client_ip = get_addr_ip(to_client);
+                    ///ignore port as its not the same port
+
+                    ///clients cannot fake auto porting ip, but they can fake port
+                    ///seems like minor issue
+                    punchthrough_to_server_data to_serv;
+                    to_serv.client_ip = client_ip;
+                    to_serv.client_port = data.my_port;
+
+                    std::cout << to_serv.client_ip << " " << to_serv.client_port << std::endl;
+
+                    std::cout << "looking for " << data.gserver_ip << " " << data.gserver_port << std::endl;
+
+                    serialise ns;
+                    ns.handle_serialise(to_serv, true);
+
+                    send_to_server(host, udp_serverlist, data.gserver_ip, data.gserver_port, ns.data);
+
+                    fetch.internal_counter = s.internal_counter;
+                }
+                #endif
             }
         }
 
