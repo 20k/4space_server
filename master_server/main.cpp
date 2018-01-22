@@ -154,7 +154,7 @@ void process_timeouts(std::vector<udp_game_server>& servers)
 
 std::vector<char> get_udp_client_response(std::vector<udp_game_server>& servers)
 {
-    byte_vector vec;
+    /*byte_vector vec;
 
     vec.push_back(canary_start);
     vec.push_back(message::CLIENTRESPONSE);
@@ -178,9 +178,26 @@ std::vector<char> get_udp_client_response(std::vector<udp_game_server>& servers)
         vec.push_back(port);
     }
 
-    vec.push_back(canary_end);
+    vec.push_back(canary_end);*/
 
-    return vec.ptr;
+    network_game_server_list net_list;
+
+    for(int i=0; i < servers.size(); i++)
+    {
+        udp_game_server& serv = servers[i];
+
+        network_game_server net_serv;
+        net_serv.ip = get_addr_ip(serv.store);
+        net_serv.port = serv.info.port_num;
+        net_serv.player_count = serv.info.player_count;
+
+        net_list.servers.push_back(net_serv);
+    }
+
+    serialise s;
+    s.handle_serialise(net_list, true);
+
+    return s.data;
 }
 
 int main()

@@ -29,12 +29,6 @@ struct keepalive_info : serialisable
     }
 };
 
-struct game_server_info
-{
-    std::string ip;
-    std::string port;
-};
-
 struct network_state
 {
     keepalive_info keepalive;
@@ -53,7 +47,7 @@ struct network_state
 
     network_reliable_ordered reliable_ordered;
 
-    std::vector<game_server_info> game_servers;
+    std::vector<network_game_server> game_servers;
 
     void tick_join_game(float dt_s);
 

@@ -162,7 +162,7 @@ void network_state::handle_master_response()
                 ///reset game servers
                 game_servers = decltype(game_servers)();
 
-                int32_t server_nums = fetch.get<int32_t>();
+                /*int32_t server_nums = fetch.get<int32_t>();
 
                 for(int i=0; i < server_nums && i < 255; i++)
                 {
@@ -177,9 +177,26 @@ void network_state::handle_master_response()
                     inf.port = std::to_string(port);
 
                     game_servers.push_back(inf);
+                }*/
+
+                int internal = fetch.internal_counter - sizeof(type) - sizeof(found_canary);
+
+                if(internal < 0)
+                {
+                    printf("ierror %i\n", internal);
+                    continue;
                 }
 
-                auto canary = fetch.get<decltype(canary_end)>();
+                serialise s;
+                s.internal_counter = internal;
+                s.data = fetch.ptr;
+
+                network_game_server_list net_list;
+                s.handle_serialise(net_list, false);
+
+                game_servers = net_list.servers;
+
+                fetch.internal_counter = s.internal_counter;
             }
         }
     }
@@ -371,11 +388,11 @@ std::vector<std::string> network_state::get_gameserver_strings()
 {
     std::vector<std::string> ret;
 
-    for(game_server_info& inf : game_servers)
+    for(network_game_server& inf : game_servers)
     {
         std::string name;
 
-        name = inf.ip + ":" + inf.port;
+        name = inf.ip + ":" + std::to_string(inf.port) + " " + std::to_string(inf.player_count) + " players connected";
 
         ret.push_back(name);
     }
@@ -388,13 +405,13 @@ void network_state::try_join_server(int offset)
     if(offset < 0 || offset >= game_servers.size())
         return;
 
-    game_server_info& info = game_servers[offset];
+    network_game_server& info = game_servers[offset];
 
     leave_game();
 
     try_join = true;
     try_join_ip = info.ip;
-    try_join_port = info.port;
+    try_join_port = std::to_string(info.port);
 }
 
 bool network_state::connected_to(int offset)
@@ -408,10 +425,10 @@ bool network_state::connected_to(int offset)
     if(my_id == -1)
         return false;
 
-    game_server_info& info = game_servers[offset];
+    network_game_server& info = game_servers[offset];
 
     std::string addr = sock.get_peer_ip();
     std::string port = sock.get_peer_port();
 
-    return addr == info.ip && port == info.port;
+    return addr == info.ip && port == std::to_string(info.port);
 }

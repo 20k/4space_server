@@ -69,6 +69,36 @@ namespace net_type
     using len_t = int8_t;
 }
 
+struct network_game_server : serialisable
+{
+    std::string ip;
+    uint32_t port = 0;
+    int32_t player_count = 0;
+
+    void do_serialise(serialise& s, bool ser) override
+    {
+        s.handle_serialise(ip, ser);
+        s.handle_serialise(port, ser);
+        s.handle_serialise(player_count, ser);
+    }
+};
+
+struct network_game_server_list : serialisable
+{
+    decltype(canary_start) can_start = canary_start;
+    message::message type = message::CLIENTRESPONSE;
+    std::vector<network_game_server> servers;
+    decltype(canary_end) can_end = canary_end;
+
+    void do_serialise(serialise& s, bool ser) override
+    {
+        s.handle_serialise(can_start, ser);
+        s.handle_serialise(type, ser);
+        s.handle_serialise(servers, ser);
+        s.handle_serialise(can_end, ser);
+    }
+};
+
 ///canary_start
 ///message::REPORT
 ///TYPE
