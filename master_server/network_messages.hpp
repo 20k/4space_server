@@ -58,6 +58,7 @@ namespace message
         PUNCHTHROUGH_FROM_CLIENT,
         PUNCHTHROUGH_TO_GAMESERVER,
         PUNCHTHROUGH_PACKET,
+        TERM_SERVER,
     };
 }
 
@@ -152,6 +153,20 @@ struct punchthrough_from_client_data : serialisable
         s.handle_serialise(gserver_ip, ser);
         s.handle_serialise(gserver_port, ser);
         s.handle_serialise(my_port, ser);
+        s.handle_serialise(can_end, ser);
+    }
+};
+
+struct generic_message : serialisable
+{
+    decltype(canary_start) can_start = canary_start;
+    message::message type = message::TERM_SERVER;
+    decltype(canary_end) can_end = canary_end;
+
+    virtual void do_serialise(serialise& s, bool ser) override
+    {
+        s.handle_serialise(can_start, ser);
+        s.handle_serialise(type, ser);
         s.handle_serialise(can_end, ser);
     }
 };

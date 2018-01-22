@@ -36,6 +36,20 @@ struct udp_game_server
     udp_serv_info info;
 
     constexpr static float timeout_s = 3;
+
+    sf::Clock term_elapse;
+
+    bool can_term()
+    {
+        if(term_elapse.getElapsedTime().asSeconds() > 5)
+        {
+            term_elapse.restart();
+
+            return true;
+        }
+
+        return false;
+    }
 };
 
 bool contains(std::vector<udp_game_server>& servers, sockaddr_storage& store)
@@ -63,6 +77,51 @@ void send_to_server(udp_sock& sock, std::vector<udp_game_server>& servers, const
     }
 }
 
+bool all_servers_have_a_player_in(std::vector<udp_game_server>& servers, const std::string& host_ip)
+{
+    for(udp_game_server& serv : servers)
+    {
+        if(get_addr_ip(serv.store) != host_ip)
+            continue;
+
+        if(serv.info.player_count <= 0)
+            return false;
+    }
+
+    return true;
+}
+
+///only terminate official servers!!
+void terminate_too_many_free_servers(std::vector<udp_game_server>& servers, const std::string& host_ip, udp_sock& host)
+{
+    int max_free = 1;
+
+    int current_free = 0;
+
+    for(udp_game_server& serv : servers)
+    {
+        if(get_addr_ip(serv.store) != host_ip)
+            continue;
+
+        if(serv.info.player_count == 0)
+        {
+            current_free++;
+        }
+
+        ///GET THE SHOTGUN
+        if(current_free > max_free && serv.can_term())
+        {
+            generic_message term;
+            term.type = message::TERM_SERVER;
+
+            serialise s;
+            s.handle_serialise(term, true);
+
+            udp_send_to(host, s.data, (const sockaddr*)&serv.store);
+        }
+    }
+}
+
 udp_serv_info process_ping(byte_fetch& fetch)
 {
     if(fetch.ptr.size() < sizeof(int32_t)*2)
@@ -86,7 +145,7 @@ void receive_pings(udp_sock& host, std::vector<udp_game_server>& servers)
     {
         host = udp_host(MASTER_PORT);
 
-        printf("Registerd udp on port %s\n", host.get_host_port().c_str());
+        printf("Registerd udp on port %s %s\n", host.get_host_ip().c_str(), host.get_host_port().c_str());
     }
 
     if(!sock_readable(host))
@@ -209,11 +268,14 @@ int main()
 
     udp_sock client_host_sock = udp_host(MASTER_CLIENT_PORT);
 
-    udp_sock host = udp_host(MASTER_PORT);
+    udp_sock host;
 
     //master_server master;
 
     std::vector<udp_game_server> udp_serverlist;
+    sf::Clock scale_clock;
+    float max_scale_delay_s = 20.f;
+    bool started_one = false;
 
     ///I think we have to keepalive the connections
     while(1)
@@ -329,6 +391,21 @@ int main()
                 #endif
             }
         }
+
+        #define AUTO_SCALE
+        #ifdef AUTO_SCALE
+        if(((scale_clock.getElapsedTime().asMilliseconds() / 1000.) > max_scale_delay_s || !started_one) && all_servers_have_a_player_in(udp_serverlist, MASTER_IP))
+        {
+            system("start game_server.exe");
+
+            scale_clock.restart();
+
+            started_one = true;
+        }
+
+        terminate_too_many_free_servers(udp_serverlist, MASTER_IP, host);
+
+        #endif // AUTO_SCALE
 
         sf::sleep(sf::milliseconds(4));
     }

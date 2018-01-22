@@ -138,8 +138,6 @@ int main(int argc, char* argv[])
             //continue;
         }*/
 
-
-        #ifdef FAILED_PUNCHTHROUGH
         bool any_read = true;
 
         while(any_read && sock_readable(to_master))
@@ -167,6 +165,7 @@ int main(int argc, char* argv[])
 
                 int32_t type = fetch.get<int32_t>();
 
+                #ifdef FAILED_PUNCHTHROUGH
                 if(type == message::PUNCHTHROUGH_TO_GAMESERVER)
                 {
                     int internal = fetch.internal_counter - sizeof(type) - sizeof(found_canary);
@@ -190,11 +189,20 @@ int main(int argc, char* argv[])
 
                     fetch.internal_counter = s.internal_counter;
                 }
+                #endif // FAILED_PUNCHTHROUGH
+
+                if(type == message::TERM_SERVER)
+                {
+                    fetch.get<int32_t>();
+
+                    printf("Terminated by master server\n");
+
+                    exit(0);
+                }
             }
         }
-        #endif
 
-        bool any_read = true;
+        any_read = true;
 
         while(any_read && sock_readable(my_server))
         {
