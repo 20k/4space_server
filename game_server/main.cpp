@@ -197,7 +197,8 @@ int main(int argc, char* argv[])
 
                     printf("Terminated by master server\n");
 
-                    exit(0);
+                    if(my_state.player_list.size() == 0)
+                        exit(0);
                 }
             }
         }
