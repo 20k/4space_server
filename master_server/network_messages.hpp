@@ -18,8 +18,6 @@
 
 #define MASTER_IP "77.96.132.101"
 
-//#define MASTER_IP "192.168.0.54"
-
 #include <stdint.h>
 
 #include <net/shared.hpp>
