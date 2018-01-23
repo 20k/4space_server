@@ -1,7 +1,7 @@
 #ifndef NETWORK_MESSAGES_HPP_INCLUDED
 #define NETWORK_MESSAGES_HPP_INCLUDED
 
-#include "../../serialise/serialise.hpp"
+#include <serialise/serialise.hpp>
 
 #define GAMESERVER_PORT "6950"
 #define MASTER_PORT     "6850" ///for server functions

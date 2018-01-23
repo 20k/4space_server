@@ -34,6 +34,7 @@
 			<Add option="-std=gnu++17" />
 			<Add option="-Wno-sign-compare" />
 			<Add option="-DNET_SERVER" />
+			<Add directory="../deps" />
 		</Compiler>
 		<Linker>
 			<Add option="-lmingw32" />
@@ -53,8 +54,11 @@
 			<Add option="-lopenal32" />
 			<Add option="-logg" />
 		</Linker>
-		<Unit filename="../../serialise/serialise.cpp" />
-		<Unit filename="../../serialise/serialise.hpp" />
+		<ExtraCommands>
+			<Add before="update_submodules.bat" />
+			<Mode after="always" />
+		</ExtraCommands>
+		<Unit filename="../deps/serialise/serialise.cpp" />
 		<Unit filename="main.cpp" />
 		<Unit filename="network_messages.hpp" />
 		<Unit filename="server.hpp" />

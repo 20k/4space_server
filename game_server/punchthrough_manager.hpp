@@ -2,6 +2,7 @@
 #define PUNCHTHROUGH_MANAGER_HPP_INCLUDED
 
 #include <SFML/System.hpp>
+#include <net/shared.hpp>
 
 struct punchthrough
 {

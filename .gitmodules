@@ -1,0 +1,9 @@
+[submodule "deps/serialise"]
+	path = deps/serialise
+	url = https://github.com/20k/funserialisation
+[submodule "deps/net"]
+	path = deps/net
+	url = https://github.com/20k/crappynetworking
+[submodule "deps/vec"]
+	path = deps/vec
+	url = https://github.com/20k/funvectormaths

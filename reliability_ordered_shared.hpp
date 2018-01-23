@@ -1,7 +1,7 @@
 #ifndef RELIABILITY_ORDERED_SHARED_HPP_INCLUDED
 #define RELIABILITY_ORDERED_SHARED_HPP_INCLUDED
 
-#include "../serialise/serialise.hpp"
+#include <serialise/serialise.hpp>
 #include "master_server/network_messages.hpp"
 
 inline
