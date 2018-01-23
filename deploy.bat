@@ -1,0 +1,2 @@
+copy "C:\Users\James\Desktop\projects\4space_server\master_server\bin\Release\master_server2.exe" Deployed_Infrastructure
+copy "C:\Users\James\Desktop\projects\4space_server\game_server\bin\Release\game_server.exe" Deployed_Infrastructure
