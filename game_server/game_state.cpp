@@ -68,7 +68,7 @@ int32_t server_game_state::get_pos_from_player_id(int32_t id)
     return -1;
 }
 
-std::optional<player*> server_game_state::get_player_ptr_from_sock(sockaddr_storage& store)
+std::experimental::optional<player*> server_game_state::get_player_ptr_from_sock(sockaddr_storage& store)
 {
     for(player& p : player_list)
     {
@@ -76,7 +76,7 @@ std::optional<player*> server_game_state::get_player_ptr_from_sock(sockaddr_stor
             return &p;
     }
 
-    return std::nullopt;
+    return std::experimental::nullopt;
 }
 
 ///need to heartbeat

@@ -216,7 +216,7 @@ int main(int argc, char* argv[])
             byte_fetch fetch;
             fetch.ptr.swap(data);
 
-            std::optional<player*> play = my_state.get_player_ptr_from_sock(store);
+            std::experimental::optional<player*> play = my_state.get_player_ptr_from_sock(store);
 
             while(!fetch.finished() && any_read)
             {
