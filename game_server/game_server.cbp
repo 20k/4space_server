@@ -79,6 +79,7 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-O3" />
+					<Add option="-pthread" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
@@ -89,6 +90,7 @@
 					<Add option="-lsfml-system" />
 					<Add option="-lfreetype" />
 					<Add option="-ljpeg" />
+					<Add option="-pthread" />
 				</Linker>
 				<ExtraCommands>
 					<Add before="./update_submodules.bat" />

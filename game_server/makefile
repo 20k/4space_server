@@ -41,12 +41,12 @@ DEP_RELEASE =
 OUT_RELEASE = bin/Release/game_server
 
 INC_ARM_RELEASE = $(INC)
-CFLAGS_ARM_RELEASE = $(CFLAGS) -O3
+CFLAGS_ARM_RELEASE = $(CFLAGS) -O3 -pthread
 RESINC_ARM_RELEASE = $(RESINC)
 RCFLAGS_ARM_RELEASE = $(RCFLAGS)
 LIBDIR_ARM_RELEASE = $(LIBDIR)
 LIB_ARM_RELEASE = $(LIB)
-LDFLAGS_ARM_RELEASE = $(LDFLAGS) -s -lsfml-graphics -lsfml-audio -lsfml-network -lsfml-window -lsfml-system -lfreetype -ljpeg
+LDFLAGS_ARM_RELEASE = $(LDFLAGS) -s -lsfml-graphics -lsfml-audio -lsfml-network -lsfml-window -lsfml-system -lfreetype -ljpeg -pthread
 OBJDIR_ARM_RELEASE = obj/Release
 DEP_ARM_RELEASE = 
 OUT_ARM_RELEASE = bin/Release/game_server
