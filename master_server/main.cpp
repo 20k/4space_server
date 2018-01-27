@@ -18,7 +18,7 @@ std::vector<udp_sock> sockets;
 void cleanup()
 {
     for(auto& i : sockets)
-        closesocket(i.get());
+        CLOSE(i.get());
 }
 
 struct udp_serv_info
@@ -396,7 +396,11 @@ int main()
         #ifdef AUTO_SCALE
         if(((scale_clock.getElapsedTime().asMilliseconds() / 1000.) > max_scale_delay_s || !started_one) && all_servers_have_a_player_in(udp_serverlist, MASTER_IP))
         {
+            #ifdef _WIN32
             system("start game_server.exe");
+            #else
+            system("./game_server &");
+            #endif // _WIN32
 
             scale_clock.restart();
 
@@ -410,7 +414,7 @@ int main()
         sf::sleep(sf::milliseconds(4));
     }
 
-    closesocket(client_host_sock.get());
+    CLOSE(client_host_sock.get());
 
     ///don't double free!
     //for(auto& i : sockets)

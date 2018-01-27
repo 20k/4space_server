@@ -16,7 +16,7 @@ CFLAGS = -Wall -fexceptions -std=gnu++17 -Wno-sign-compare -DNET_SERVER -DNO_SFM
 RESINC = 
 LIBDIR = 
 LIB = 
-LDFLAGS = -lmingw32 -lsfml-graphics -lsfml-audio -lsfml-network -lsfml-window -lsfml-system -lfreetype -ljpeg -lopengl32 -lglew64.dll -lws2_32 -lwinmm -lgdi32 -lflac -lopenal32 -logg
+LDFLAGS = 
 
 INC_DEBUG = $(INC)
 CFLAGS_DEBUG = $(CFLAGS) -g
@@ -24,7 +24,7 @@ RESINC_DEBUG = $(RESINC)
 RCFLAGS_DEBUG = $(RCFLAGS)
 LIBDIR_DEBUG = $(LIBDIR)
 LIB_DEBUG = $(LIB)
-LDFLAGS_DEBUG = $(LDFLAGS)
+LDFLAGS_DEBUG = $(LDFLAGS) -lmingw32 -lsfml-graphics -lsfml-audio -lsfml-network -lsfml-window -lsfml-system -lfreetype -ljpeg -lopengl32 -lglew64.dll -lws2_32 -lwinmm -lgdi32 -lflac -lopenal32 -logg
 OBJDIR_DEBUG = obj/Debug
 DEP_DEBUG = 
 OUT_DEBUG = bin/Debug/master_server
@@ -35,34 +35,42 @@ RESINC_RELEASE = $(RESINC)
 RCFLAGS_RELEASE = $(RCFLAGS)
 LIBDIR_RELEASE = $(LIBDIR)
 LIB_RELEASE = $(LIB)
-LDFLAGS_RELEASE = $(LDFLAGS) -s
+LDFLAGS_RELEASE = $(LDFLAGS) -s -lmingw32 -lsfml-graphics -lsfml-audio -lsfml-network -lsfml-window -lsfml-system -lfreetype -ljpeg -lopengl32 -lglew64.dll -lws2_32 -lwinmm -lgdi32 -lflac -lopenal32 -logg
 OBJDIR_RELEASE = obj/Release
 DEP_RELEASE = 
 OUT_RELEASE = bin/Release/master_server2
+
+INC_ARM_RELEASE = $(INC)
+CFLAGS_ARM_RELEASE = $(CFLAGS) -O2 -pthread
+RESINC_ARM_RELEASE = $(RESINC)
+RCFLAGS_ARM_RELEASE = $(RCFLAGS)
+LIBDIR_ARM_RELEASE = $(LIBDIR)
+LIB_ARM_RELEASE = $(LIB)
+LDFLAGS_ARM_RELEASE = $(LDFLAGS) -s -lsfml-graphics -lsfml-audio -lsfml-network -lsfml-window -lsfml-system -lfreetype -ljpeg -pthread
+OBJDIR_ARM_RELEASE = obj/Release
+DEP_ARM_RELEASE = 
+OUT_ARM_RELEASE = bin/Release/master_server2
 
 OBJ_DEBUG = $(OBJDIR_DEBUG)/__/deps/serialise/serialise.o $(OBJDIR_DEBUG)/main.o
 
 OBJ_RELEASE = $(OBJDIR_RELEASE)/__/deps/serialise/serialise.o $(OBJDIR_RELEASE)/main.o
 
-all: before_build build_debug build_release after_build
+OBJ_ARM_RELEASE = $(OBJDIR_ARM_RELEASE)/__/deps/serialise/serialise.o $(OBJDIR_ARM_RELEASE)/main.o
 
-clean: clean_debug clean_release
+all: debug release arm_release
 
-before_build: 
-	update_submodules.bat
-
-after_build: 
+clean: clean_debug clean_release clean_arm_release
 
 before_debug: 
+	update_submodules.bat
+	update_makefile.bat
 	test -d bin/Debug || mkdir -p bin/Debug
 	test -d $(OBJDIR_DEBUG)/__/deps/serialise || mkdir -p $(OBJDIR_DEBUG)/__/deps/serialise
 	test -d $(OBJDIR_DEBUG) || mkdir -p $(OBJDIR_DEBUG)
 
 after_debug: 
 
-build_debug: before_debug out_debug after_debug
-
-debug: before_build build_debug after_build
+debug: before_debug out_debug after_debug
 
 out_debug: before_debug $(OBJ_DEBUG) $(DEP_DEBUG)
 	$(LD) $(LIBDIR_DEBUG) -o $(OUT_DEBUG) $(OBJ_DEBUG)  $(LDFLAGS_DEBUG) $(LIB_DEBUG)
@@ -80,15 +88,15 @@ clean_debug:
 	rm -rf $(OBJDIR_DEBUG)
 
 before_release: 
+	update_submodules.bat
+	update_makefile.bat
 	test -d bin/Release || mkdir -p bin/Release
 	test -d $(OBJDIR_RELEASE)/__/deps/serialise || mkdir -p $(OBJDIR_RELEASE)/__/deps/serialise
 	test -d $(OBJDIR_RELEASE) || mkdir -p $(OBJDIR_RELEASE)
 
 after_release: 
 
-build_release: before_release out_release after_release
-
-release: before_build build_release after_build
+release: before_release out_release after_release
 
 out_release: before_release $(OBJ_RELEASE) $(DEP_RELEASE)
 	$(LD) $(LIBDIR_RELEASE) -o $(OUT_RELEASE) $(OBJ_RELEASE)  $(LDFLAGS_RELEASE) $(LIB_RELEASE)
@@ -105,5 +113,30 @@ clean_release:
 	rm -rf $(OBJDIR_RELEASE)/__/deps/serialise
 	rm -rf $(OBJDIR_RELEASE)
 
-.PHONY: before_build after_build before_debug after_debug clean_debug before_release after_release clean_release
+before_arm_release: 
+	./update_submodules.bat
+	test -d bin/Release || mkdir -p bin/Release
+	test -d $(OBJDIR_ARM_RELEASE)/__/deps/serialise || mkdir -p $(OBJDIR_ARM_RELEASE)/__/deps/serialise
+	test -d $(OBJDIR_ARM_RELEASE) || mkdir -p $(OBJDIR_ARM_RELEASE)
+
+after_arm_release: 
+
+arm_release: before_arm_release out_arm_release after_arm_release
+
+out_arm_release: before_arm_release $(OBJ_ARM_RELEASE) $(DEP_ARM_RELEASE)
+	$(LD) $(LIBDIR_ARM_RELEASE) -o $(OUT_ARM_RELEASE) $(OBJ_ARM_RELEASE)  $(LDFLAGS_ARM_RELEASE) $(LIB_ARM_RELEASE)
+
+$(OBJDIR_ARM_RELEASE)/__/deps/serialise/serialise.o: ../deps/serialise/serialise.cpp
+	$(CXX) $(CFLAGS_ARM_RELEASE) $(INC_ARM_RELEASE) -c ../deps/serialise/serialise.cpp -o $(OBJDIR_ARM_RELEASE)/__/deps/serialise/serialise.o
+
+$(OBJDIR_ARM_RELEASE)/main.o: main.cpp
+	$(CXX) $(CFLAGS_ARM_RELEASE) $(INC_ARM_RELEASE) -c main.cpp -o $(OBJDIR_ARM_RELEASE)/main.o
+
+clean_arm_release: 
+	rm -f $(OBJ_ARM_RELEASE) $(OUT_ARM_RELEASE)
+	rm -rf bin/Release
+	rm -rf $(OBJDIR_ARM_RELEASE)/__/deps/serialise
+	rm -rf $(OBJDIR_ARM_RELEASE)
+
+.PHONY: before_debug after_debug clean_debug before_release after_release clean_release before_arm_release after_arm_release clean_arm_release
 
