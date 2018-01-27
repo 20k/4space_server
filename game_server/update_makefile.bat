@@ -1,0 +1,1 @@
+cbp2make -in game_server.cbp -out makefile -unix
