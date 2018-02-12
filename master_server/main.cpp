@@ -180,6 +180,7 @@ void receive_pings(udp_sock& host, std::vector<udp_game_server>& servers)
     if(new_server)
     {
         printf("Hosting on port %s\n", std::to_string(info.port_num).c_str());
+        printf("Found Game ID %i\n", info.game_id);
     }
 
     //printf("%i %i\n", info.player_count, info.port_num);
