@@ -25,6 +25,7 @@ struct udp_serv_info
 {
     int32_t player_count = 0;
     int32_t port_num = atoi(GAMESERVER_PORT);
+    int32_t game_id = -1;
 };
 
 struct udp_game_server
@@ -129,11 +130,13 @@ udp_serv_info process_ping(byte_fetch& fetch)
 
     int32_t player_count = fetch.get<int32_t>();
     int32_t port_num = fetch.get<int32_t>();
+    int32_t game_id = fetch.get<int32_t>();
 
     udp_serv_info info;
 
     info.player_count = player_count;
     info.port_num = port_num;
+    info.game_id = game_id;
 
     return info;
 }
@@ -249,6 +252,7 @@ std::vector<char> get_udp_client_response(std::vector<udp_game_server>& servers)
         net_serv.ip = get_addr_ip(serv.store);
         net_serv.port = serv.info.port_num;
         net_serv.player_count = serv.info.player_count;
+        net_serv.game_id = serv.info.game_id;
 
         net_list.servers.push_back(net_serv);
     }

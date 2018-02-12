@@ -83,6 +83,8 @@ struct server_game_state
     float last_time_ms = 0;
     sf::Clock running_time;
 
+    int32_t game_id = -1;
+
     ///THIS IS NOT A MAP
     ///PLAYER IDS ARE NOT POSITIONS IN THIS STRUCTURE
     std::vector<player> player_list;

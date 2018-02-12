@@ -75,12 +75,14 @@ struct network_game_server : serialisable
     std::string ip;
     uint32_t port = 0;
     int32_t player_count = 0;
+    int32_t game_id = -1;
 
     void do_serialise(serialise& s, bool ser) override
     {
         s.handle_serialise(ip, ser);
         s.handle_serialise(port, ser);
         s.handle_serialise(player_count, ser);
+        s.handle_serialise(game_id, ser);
     }
 };
 

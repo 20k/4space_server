@@ -37,6 +37,7 @@ void ping_master(server_game_state& my_state, udp_sock& to_master, udp_sock& my_
 
     vec.push_back<int32_t>(my_state.player_list.size());
     vec.push_back<int32_t>(port);
+    vec.push_back<int32_t>(my_state.game_id);
 
     udp_send(to_master, vec.ptr);
 
@@ -91,6 +92,7 @@ int main(int argc, char* argv[])
     printf("Registered on port %s\n", my_server.get_host_port().c_str());
 
     server_game_state my_state;
+    my_state.game_id = BINMAT_SIM_GAME_ID;
 
     udp_sock to_master;
 

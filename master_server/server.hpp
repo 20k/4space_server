@@ -5,6 +5,7 @@
 
 struct tcp_sock;
 
+#if 0
 struct game_server
 {
     //tcp_sock sock;
@@ -18,6 +19,7 @@ struct game_server
     float ping = -1;
     bool pinged = false;
 };
+#endif // 0
 
 ///me!
 /*struct master_server
