@@ -5,6 +5,11 @@
 
 //#define GAMESERVER_IP "127.0.0.1"
 
+void network_state::set_game_id(int g_id)
+{
+    game_id = g_id;
+}
+
 void network_state::tick_join_game(float dt_s)
 {
     if(my_id != -1)
@@ -35,7 +40,7 @@ void network_state::tick_join_game(float dt_s)
 
     if(timeout > timeout_max)
     {
-        send_join_game(sock);
+        send_join_game(sock, game_id);
 
         #ifdef FAILED_PUNCHTHROUGH
         //std::cout << "sending join 2 " << sock.get_peer_ip() << " " << sock.get_peer_port() << std::endl;

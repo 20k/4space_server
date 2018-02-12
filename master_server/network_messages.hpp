@@ -16,6 +16,9 @@
 
 //#define MASTER_IP "enigma.simrai.com"
 
+#define SPACE_GAME_ID 0
+#define BINMAT_SIM_GAME_ID 1
+
 #define MASTER_IP "77.96.132.101"
 
 #include <stdint.h>

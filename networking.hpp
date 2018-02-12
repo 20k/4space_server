@@ -49,6 +49,13 @@ struct network_state
 
     std::vector<network_game_server> game_servers;
 
+    network_state(int g_id)
+    {
+        set_game_id(g_id);
+    }
+
+    void set_game_id(int g_id);
+
     void tick_join_game(float dt_s);
 
     void handle_master_response();
@@ -85,6 +92,8 @@ public:
     std::vector<std::string> get_gameserver_strings();
     void try_join_server(int offset);
     bool connected_to(int offset);
+
+    int game_id = -1;
 };
 
 struct update_strategy
