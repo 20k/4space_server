@@ -5,16 +5,18 @@
 #include "master_server/network_messages.hpp"
 
 inline
-void send_join_game(udp_sock& sock)
+void send_join_game(udp_sock& sock, uint32_t game_id)
 {
     byte_vector vec;
     vec.push_back(canary_start);
     vec.push_back(message::CLIENTJOINREQUEST);
+    vec.push_back(game_id);
     vec.push_back(canary_end);
 
     udp_send(sock, vec.ptr);
 }
 
+#if 0
 inline
 udp_sock join_game(const std::string& address, const std::string& port)
 {
@@ -24,6 +26,7 @@ udp_sock join_game(const std::string& address, const std::string& port)
 
     return sock;
 }
+#endif
 
 inline
 int get_max_packet_size_clientside()
