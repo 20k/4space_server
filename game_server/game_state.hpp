@@ -142,5 +142,41 @@ struct server_game_state
     //void set_map(int);
 };
 
+inline
+void ping_master(server_game_state& my_state, udp_sock& to_master, udp_sock& my_host)
+{
+    static sf::Clock clk;
+    static bool init = false;
+
+    if(clk.getElapsedTime().asSeconds() < 1 && init)
+        return;
+
+    init = true;
+
+    if(!to_master.valid())
+    {
+        if(to_master.udp_connected)
+        {
+            to_master.close();
+            printf("Local sock error (this is not caused by master server termination), reopening socket\n");
+        }
+
+        to_master = udp_connect(MASTER_IP, MASTER_PORT);
+
+        printf("Creating socket to master server\n");
+    }
+
+    int32_t port = atoi(my_host.get_host_port().c_str());
+
+    byte_vector vec;
+
+    vec.push_back<int32_t>(my_state.player_list.size());
+    vec.push_back<int32_t>(port);
+    vec.push_back<int32_t>(my_state.game_id);
+
+    udp_send(to_master, vec.ptr);
+
+    clk.restart();
+}
 
 #endif // GAME_STATE_HPP_INCLUDED

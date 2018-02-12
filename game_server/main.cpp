@@ -8,52 +8,11 @@
 #include "../reliability_ordered_shared.hpp"
 #include "punchthrough_manager.hpp"
 
-void ping_master(server_game_state& my_state, udp_sock& to_master, udp_sock& my_host)
-{
-    static sf::Clock clk;
-    static bool init = false;
-
-    if(clk.getElapsedTime().asSeconds() < 1 && init)
-        return;
-
-    init = true;
-
-    if(!to_master.valid())
-    {
-        if(to_master.udp_connected)
-        {
-            to_master.close();
-            printf("Local sock error (this is not caused by master server termination), reopening socket\n");
-        }
-
-        to_master = udp_connect(MASTER_IP, MASTER_PORT);
-
-        printf("Creating socket to master server\n");
-    }
-
-    int32_t port = atoi(my_host.get_host_port().c_str());
-
-    byte_vector vec;
-
-    vec.push_back<int32_t>(my_state.player_list.size());
-    vec.push_back<int32_t>(port);
-    vec.push_back<int32_t>(my_state.game_id);
-
-    udp_send(to_master, vec.ptr);
-
-    clk.restart();
-}
-
-using namespace std;
-
 ///so as it turns out, you must use canaries with tcp as its a stream protocol
 ///that will by why the map client doesn't work
 ///:[
 int main(int argc, char* argv[])
 {
-    //sock_info inf = try_tcp_connect(MASTER_IP, MASTER_PORT);
-    //tcp_sock to_server;
-
     std::string host_port = GAMESERVER_PORT;
 
     for(int i=1; i<argc; i++)
@@ -105,40 +64,6 @@ int main(int argc, char* argv[])
     while(going)
     {
         ping_master(my_state, to_master, my_server);
-
-        /*if(sock_readable(to_server))
-        {
-            auto dat = tcp_recv(to_server);
-        }
-
-        if(!to_server.valid())
-        {
-            if(!inf.within_timeout())
-            {
-                ///resets sock info
-                inf.retry();
-                inf = try_tcp_connect(MASTER_IP, MASTER_PORT);
-
-                printf("trying\n");
-            }
-
-            if(inf.valid())
-            {
-                to_server = tcp_sock(inf.get());
-
-                byte_vector vec;
-                vec.push_back(canary_start);
-                vec.push_back(message::GAMESERVER);
-                vec.push_back<uint32_t>(pnum);
-                vec.push_back(canary_end);
-
-                tcp_send(to_server, vec.ptr);
-
-                printf("found master server\n");
-            }
-
-            //continue;
-        }*/
 
         bool any_read = true;
 
@@ -236,7 +161,6 @@ int main(int argc, char* argv[])
 
                 int32_t type = fetch.get<int32_t>();
 
-
                 if(type == message::CLIENTJOINREQUEST)
                 {
                     std::cout << "joinreq " << get_addr_ip(store) << " " << get_addr_port(store) << std::endl;
@@ -248,38 +172,6 @@ int main(int argc, char* argv[])
                 {
                     my_state.process_received_message(fetch, store);
                 }
-
-                /*else if(type == message::REPORT)
-                {
-                    my_state.process_reported_message(fetch, store);
-                }*/
-                /*else if(type == message::RESPAWNREQUEST)
-                {
-                    my_state.process_respawn_request(my_server, fetch, store);
-                }*/
-                /*else if(type == message::FORWARDING_RELIABLE)
-                {
-                    int32_t player_id = my_state.sockaddr_to_playerid(store);
-
-                    uint32_t reliable_id = -1;
-
-                    byte_vector vec = reliability_manager::strip_data_from_forwarding_reliable(fetch, reliable_id);
-
-                    ///don't want to replicate it back to the player, do we!
-                    ///we're calling add, but add sticks on canaries
-                    ///really we want to strip down the message
-
-                    ///so uuh. this is instructing the server to just repeatdly forward
-                    ///the message to the client
-                    ///whereas obviously we want to check if they've already got it
-                    ///I'm not smart
-                    my_state.reliable.add(vec, player_id, reliable_id);
-                    my_state.reliable.add_packetid_to_ack(reliable_id, player_id);
-                }
-                else if(type == message::FORWARDING_RELIABLE_ACK)
-                {
-                    my_state.reliable.process_ack(fetch);
-                }*/
                 else if(type == message::PING_RESPONSE)
                 {
                     my_state.process_ping_response(my_server, fetch, store);
@@ -310,8 +202,6 @@ int main(int argc, char* argv[])
                     {
                         (*play)->reliable_ordered.handle_forwarding_ordered_reliable(fetch);
                     }
-
-                    //my_state.reliable_ordered.handle_forwarding_ordered_reliable(fetch, player_id);
                 }
                 else if(type == message::FORWARDING_ORDERED_RELIABLE_REQUEST)
                 {
@@ -319,8 +209,6 @@ int main(int argc, char* argv[])
                     {
                         (*play)->reliable_ordered.handle_packet_request(my_server, (const sockaddr*)&store, fetch);
                     }
-
-                    //my_state.reliable_ordered.handle_packet_request(my_server, (const sockaddr*)&store, fetch);
                 }
                 else if(type == message::FORWARDING_ORDERED_RELIABLE_ACK)
                 {
@@ -328,24 +216,11 @@ int main(int argc, char* argv[])
                     {
                         (*play)->reliable_ordered.handle_ack(fetch);
                     }
-
-                    //my_state.reliable_ordered.handle_ack(fetch);
                 }
                 else
                 {
                     printf("err %i ", type);
                 }
-
-                /*if(!once && my_state.gid == 3)
-                {
-                    printf("pied piping\n");
-
-                    //my_state.reliable.add(test, -1);
-
-                    once = true;
-                }*/
-
-                //printf("client %s:%s\n", get_addr_ip(store).c_str(), get_addr_port(store).c_str());
 
                 my_state.reset_player_disconnect_timer(store);
             }
@@ -355,16 +230,6 @@ int main(int argc, char* argv[])
         {
             std::vector<network_data> reliable_data;
             p.reliable_ordered.make_packets_available_into(reliable_data);
-
-            /*if(reliable_data.size() > 0)
-            {
-                std::cout << "av \n";
-
-                for(network_data& dat : reliable_data)
-                {
-                    std::cout << dat.packet_id << std::endl;
-                }
-            }*/
 
             for(network_data& dat : reliable_data)
             {
@@ -391,22 +256,7 @@ int main(int argc, char* argv[])
 
         sf::sleep(sf::milliseconds(4));
 
-
-        //my_state.tick();
-
-        //my_state.balance_teams();
-
-        //my_state.periodic_team_broadcast();
-
-        /*my_state.periodic_gamemode_stats_broadcast();
-
-        my_state.periodic_respawn_info_update();
-
-        my_state.periodic_player_stats_update();*/
-
         my_state.cull_disconnected_players();
-
-        //my_state.reliable.tick(&my_state);
 
         ///should do tick ping
         if(my_state.ping_interval_clk.getElapsedTime().asMicroseconds() / 1000.f >= my_state.ping_interval_ms)
