@@ -93,6 +93,8 @@ public:
     void try_join_server(int offset);
     bool connected_to(int offset);
 
+    void prune_gameservers();
+
     int game_id = -1;
 };
 
