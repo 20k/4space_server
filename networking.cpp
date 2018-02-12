@@ -202,7 +202,22 @@ void network_state::handle_master_response()
                 game_servers = net_list.servers;
 
                 fetch.internal_counter = s.internal_counter;
+
+                prune_gameservers();
             }
+        }
+    }
+}
+
+void network_state::prune_gameservers()
+{
+    for(int i=0; i < game_servers.size(); i++)
+    {
+        if(game_servers[i].game_id != game_id)
+        {
+            game_servers.erase(game_servers.begin() + i);
+            i--;
+            continue;
         }
     }
 }
